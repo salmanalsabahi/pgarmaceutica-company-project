@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>شركة الشفاء لتوزيع الأدوية</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+    <style>
+      :root {
+        /* 🎨 الألوان */
+        --chat--color--primary: #6C5CE7; /* بنفسجي */
+        --chat--color--primary-shade-50: #5a4bd6;
+        --chat--color--primary--shade-100: #4c3ec4;
+
+        --chat--color--secondary: #00B894; /* أخضر */
+        --chat--color-secondary-shade-50: #019875;
+
+        --chat--color-white: #ffffff;
+        --chat--color-light: #f8f9fc;
+        --chat--color-dark: #1e1e2f;
+
+        /* 📐 الشكل العام */
+        --chat--border-radius: 14px;
+        --chat--spacing: 1rem;
+        --chat--font-family: 'Cairo', sans-serif;
+
+        /* 🪟 نافذة الشات */
+        --chat--window--width: 380px;
+        --chat--window--height: 550px;
+        --chat--window--border-radius: 16px;
+
+        /* 🧠 الهيدر */
+        --chat--header--background: linear-gradient(135deg, #6C5CE7, #00B894);
+        --chat--header--color: #fff;
+        --chat--heading--font-size: 1.4em;
+
+        /* 💬 الرسائل */
+        --chat--message--border-radius: 12px;
+
+        --chat--message--bot--background: #ffffff;
+        --chat--message--bot--color: #333;
+
+        --chat--message--user--background: #6C5CE7;
+        --chat--message--user--color: #fff;
+
+        /* 🔘 زر الفتح */
+        --chat--toggle--background: linear-gradient(135deg, #6C5CE7, #00B894);
+        --chat--toggle--hover--background: #5a4bd6;
+        --chat--toggle--size: 60px;
+
+        /* ✏️ الإدخال */
+        --chat--input--border-radius: 10px;
+      }
+
+      /* 📝 اتجاه عربي */
+      .n8n-chat {
+        direction: rtl;
+      }
+
+      /* تحسين النص */
+      .n8n-chat * {
+        font-family: 'Cairo', sans-serif !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+      import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+
+      createChat({
+        webhookUrl: 'https://n8n.srv1206282.hstgr.cloud/webhook/184a4556-6940-42a5-aa52-9cc064b12e52/chat',
+        mode: 'window',
+        defaultLanguage: 'ar',
+        showWelcomeScreen: true,
+        initialMessages: [
+          'مرحباً بك في سولتير - اليمن ✨',
+          'مساعدك الذكي في خدمتك 🤖',
+          'كيف أقدر أساعدك اليوم؟'
+        ],
+        i18n: {
+          ar: {
+            title: '🛍️ سولتير - اليمن',
+            subtitle: 'متجرك الإلكتروني لكل ما تحتاجه',
+            footer: '',
+            getStarted: 'ابدأ المحادثة',
+            inputPlaceholder: 'اكتب سؤالك هنا...',
+          },
+        },
+        metadata: {
+          store: 'Soltier Yemen'
+        }
+      });
+    </script>
+  </body>
+</html>
+
