@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, Building2, User, Phone, CheckCircle } from 'lucide-react';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { useUserStore } from '../store/useUserStore';
+import { useBookingStore } from '../store/useBookingStore';
 
 export const Booking: React.FC = () => {
   const { addToast } = useNotificationStore();
+  const { user } = useUserStore();
+  const { addBooking } = useBookingStore();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    facilityName: '',
+    name: user?.name || '',
+    facilityName: user?.businessType || '',
     phone: '',
     serviceType: 'توزيع أدوية',
     date: '',
@@ -15,13 +20,30 @@ export const Booking: React.FC = () => {
     notes: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate API call
-    setTimeout(() => {
+    setIsSubmitting(true);
+    try {
+      await addBooking({
+        id: `booking-${Date.now()}`,
+        userId: user?.id || '',
+        name: formData.name,
+        facilityName: formData.facilityName,
+        phone: formData.phone,
+        serviceType: formData.serviceType,
+        date: formData.date,
+        time: formData.time,
+        notes: formData.notes,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
       setIsSubmitted(true);
       addToast('تم تأكيد حجزك بنجاح. سنتواصل معك قريباً.', 'success');
-    }, 1000);
+    } catch (error) {
+      addToast('حدث خطأ أثناء إرسال طلب الحجز', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
@@ -184,8 +206,8 @@ export const Booking: React.FC = () => {
                 ></textarea>
               </div>
 
-              <button type="submit" className="w-full bg-primary hover:bg-primary-light text-white font-bold py-4 px-8 rounded-xl transition-colors text-lg shadow-md shadow-primary/20">
-                تأكيد الحجز
+              <button disabled={isSubmitting} type="submit" className="w-full bg-primary hover:bg-primary-light text-white font-bold py-4 px-8 rounded-xl transition-colors text-lg shadow-md shadow-primary/20">
+                {isSubmitting ? 'جاري الإرسال...' : 'تأكيد الحجز'}
               </button>
             </form>
           </div>

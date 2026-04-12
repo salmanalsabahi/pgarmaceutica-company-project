@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Users, Package, ShoppingCart, DollarSign, TrendingUp, Settings, Plus, Edit, Trash2, Check, X, LayoutDashboard, Tag, Image as ImageIcon, FolderTree } from 'lucide-react';
+import { Users, Package, ShoppingCart, DollarSign, TrendingUp, Settings, Plus, Edit, Trash2, Check, X, LayoutDashboard, Tag, Image as ImageIcon, FolderTree, Calendar } from 'lucide-react';
 import { useUserStore } from '../store/useUserStore';
 import { useProductStore } from '../store/useProductStore';
 import { useOrderStore } from '../store/useOrderStore';
 import { useNotificationStore } from '../store/useNotificationStore';
 import { usePromoStore, PromoCode } from '../store/usePromoStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useBookingStore } from '../store/useBookingStore';
 import { Product } from '../data/products';
 
 export const AdminDashboard: React.FC = () => {
-  const { user, users, updateUser, addUserNotification } = useUserStore();
+  const { user, users, updateUser, addUserNotification, updateEmail, updatePassword } = useUserStore();
   const { products, addProduct, updateProduct, deleteProduct, categories, addCategory, deleteCategory, updateCategory, productTypes, addProductType, updateProductType, deleteProductType, manufacturers, addManufacturer, updateManufacturer, deleteManufacturer } = useProductStore();
   const { orders, updateOrderStatus } = useOrderStore();
   const { promos, addPromo, updatePromo, deletePromo } = usePromoStore();
   const { addToast } = useNotificationStore();
   const { settings, updateSettings } = useSettingsStore();
+  const { bookings, updateBookingStatus } = useBookingStore();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'categories' | 'types' | 'manufacturers' | 'users' | 'promos' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'categories' | 'types' | 'manufacturers' | 'users' | 'promos' | 'settings' | 'bookings'>('overview');
 
   // Product Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -75,13 +77,25 @@ export const AdminDashboard: React.FC = () => {
   const [manufacturerForm, setManufacturerForm] = useState('');
 
   // Admin Settings State
-  const [adminPasswordForm, setAdminPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  
   const [settingsForm, setSettingsForm] = useState(settings);
+
+  // Admin Account Security State
+  const [adminEmail, setAdminEmail] = useState(user?.email || '');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isUpdatingAccount, setIsUpdatingAccount] = useState(false);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   if (!user || user.role !== 'admin') {
     return <Navigate to="/" />;
@@ -105,26 +119,42 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteProduct = (id: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-      deleteProduct(id);
-      addToast('تم حذف المنتج بنجاح', 'success');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'حذف منتج',
+      message: 'هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.',
+      onConfirm: async () => {
+        try {
+          await deleteProduct(id);
+          addToast('تم حذف المنتج بنجاح', 'success');
+        } catch (error) {
+          console.error('Error deleting product:', error);
+          addToast('حدث خطأ أثناء حذف المنتج', 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProduct) {
-      updateProduct(editingProduct.id, productForm);
-      addToast('تم تحديث المنتج بنجاح', 'success');
-    } else {
-      const newProduct = {
-        ...productForm,
-        id: `prod-${Date.now()}`
-      } as Product;
-      addProduct(newProduct);
-      addToast('تم إضافة المنتج بنجاح', 'success');
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, productForm);
+        addToast('تم تحديث المنتج بنجاح', 'success');
+      } else {
+        const newProduct = {
+          ...productForm,
+          id: `prod-${Date.now()}`
+        } as Product;
+        await addProduct(newProduct);
+        addToast('تم إضافة المنتج بنجاح', 'success');
+      }
+      setIsProductModalOpen(false);
+    } catch (error) {
+      console.error('Error saving product:', error);
+      addToast('حدث خطأ أثناء حفظ المنتج', 'error');
     }
-    setIsProductModalOpen(false);
   };
 
   const handleSettingsSave = (e: React.FormEvent) => {
@@ -133,23 +163,48 @@ export const AdminDashboard: React.FC = () => {
     addToast('تم حفظ الإعدادات بنجاح', 'success');
   };
 
-  const handleAdminPasswordUpdate = (e: React.FormEvent) => {
+  const handleUpdateAdminEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPasswordForm.currentPassword !== user.password) {
-      addToast('كلمة المرور الحالية غير صحيحة', 'error');
-      return;
+    if (!adminEmail || adminEmail === user?.email) return;
+    
+    setIsUpdatingAccount(true);
+    try {
+      await updateEmail(adminEmail);
+      addToast('تم تحديث البريد الإلكتروني بنجاح', 'success');
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/requires-recent-login') {
+        addToast('يرجى تسجيل الخروج ثم الدخول مرة أخرى لتغيير البريد الإلكتروني (لدواعي أمنية)', 'error');
+      } else {
+        addToast('حدث خطأ أثناء تحديث البريد الإلكتروني', 'error');
+      }
+    } finally {
+      setIsUpdatingAccount(false);
     }
-    if (adminPasswordForm.newPassword !== adminPasswordForm.confirmPassword) {
-      addToast('كلمتا المرور غير متطابقتين', 'error');
-      return;
-    }
-    if (adminPasswordForm.newPassword.length < 6) {
+  };
+
+  const handleUpdateAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPassword || adminPassword.length < 6) {
       addToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error');
       return;
     }
-    updateUser(user.id, { password: adminPasswordForm.newPassword });
-    addToast('تم تحديث كلمة المرور بنجاح', 'success');
-    setAdminPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    
+    setIsUpdatingAccount(true);
+    try {
+      await updatePassword(adminPassword);
+      addToast('تم تحديث كلمة المرور بنجاح', 'success');
+      setAdminPassword('');
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/requires-recent-login') {
+        addToast('يرجى تسجيل الخروج ثم الدخول مرة أخرى لتغيير كلمة المرور (لدواعي أمنية)', 'error');
+      } else {
+        addToast('حدث خطأ أثناء تحديث كلمة المرور', 'error');
+      }
+    } finally {
+      setIsUpdatingAccount(false);
+    }
   };
 
   const openAddPromoModal = () => {
@@ -165,101 +220,165 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeletePromo = (id: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا العرض؟')) {
-      deletePromo(id);
-      addToast('تم حذف العرض بنجاح', 'success');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'حذف عرض',
+      message: 'هل أنت متأكد من حذف هذا العرض؟',
+      onConfirm: async () => {
+        try {
+          await deletePromo(id);
+          addToast('تم حذف العرض بنجاح', 'success');
+        } catch (error) {
+          console.error('Error deleting promo:', error);
+          addToast('حدث خطأ أثناء حذف العرض', 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
-  const handleSavePromo = (e: React.FormEvent) => {
+  const handleSavePromo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingPromo) {
-      updatePromo(editingPromo.id, promoForm);
-      addToast('تم تحديث العرض بنجاح', 'success');
-    } else {
-      const newPromo = {
-        ...promoForm,
-        id: `promo-${Date.now()}`
-      } as PromoCode;
-      addPromo(newPromo);
-      addToast('تم إضافة العرض بنجاح', 'success');
+    try {
+      if (editingPromo) {
+        await updatePromo(editingPromo.id, promoForm);
+        addToast('تم تحديث العرض بنجاح', 'success');
+      } else {
+        const newPromo = {
+          ...promoForm,
+          id: `promo-${Date.now()}`
+        } as PromoCode;
+        await addPromo(newPromo);
+        addToast('تم إضافة العرض بنجاح', 'success');
+      }
+      setIsPromoModalOpen(false);
+    } catch (error) {
+      console.error('Error saving promo:', error);
+      addToast('حدث خطأ أثناء حفظ العرض', 'error');
     }
-    setIsPromoModalOpen(false);
   };
 
-  const handleSaveCategory = (e: React.FormEvent) => {
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryForm.trim()) return;
     
-    if (editingCategory) {
-      updateCategory(editingCategory.old, categoryForm.trim());
-      addToast('تم تحديث القسم بنجاح', 'success');
-    } else {
-      if (categories.includes(categoryForm.trim())) {
-        addToast('هذا القسم موجود مسبقاً', 'error');
-        return;
+    try {
+      if (editingCategory) {
+        await updateCategory(editingCategory.old, categoryForm.trim());
+        addToast('تم تحديث القسم بنجاح', 'success');
+      } else {
+        if (categories.includes(categoryForm.trim())) {
+          addToast('هذا القسم موجود مسبقاً', 'error');
+          return;
+        }
+        await addCategory(categoryForm.trim());
+        addToast('تم إضافة القسم بنجاح', 'success');
       }
-      addCategory(categoryForm.trim());
-      addToast('تم إضافة القسم بنجاح', 'success');
+      setIsCategoryModalOpen(false);
+    } catch (error) {
+      console.error('Error saving category:', error);
+      addToast('حدث خطأ أثناء حفظ القسم', 'error');
     }
-    setIsCategoryModalOpen(false);
   };
 
   const handleDeleteCategory = (category: string) => {
-    if (window.confirm(`هل أنت متأكد من حذف قسم "${category}"؟ سيتم حذف جميع المنتجات المرتبطة به.`)) {
-      deleteCategory(category);
-      addToast('تم حذف القسم بنجاح', 'success');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'حذف قسم',
+      message: `هل أنت متأكد من حذف قسم "${category}"؟ سيتم حذف جميع المنتجات المرتبطة به.`,
+      onConfirm: async () => {
+        try {
+          await deleteCategory(category);
+          addToast('تم حذف القسم بنجاح', 'success');
+        } catch (error) {
+          console.error('Error deleting category:', error);
+          addToast('حدث خطأ أثناء حذف القسم', 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
-  const handleSaveProductType = (e: React.FormEvent) => {
+  const handleSaveProductType = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productTypeForm.trim()) return;
     
-    if (editingProductType) {
-      updateProductType(editingProductType.old, productTypeForm.trim());
-      addToast('تم تحديث نوع المنتج بنجاح', 'success');
-    } else {
-      if (productTypes.includes(productTypeForm.trim())) {
-        addToast('هذا النوع موجود مسبقاً', 'error');
-        return;
+    try {
+      if (editingProductType) {
+        await updateProductType(editingProductType.old, productTypeForm.trim());
+        addToast('تم تحديث نوع المنتج بنجاح', 'success');
+      } else {
+        if (productTypes.includes(productTypeForm.trim())) {
+          addToast('هذا النوع موجود مسبقاً', 'error');
+          return;
+        }
+        await addProductType(productTypeForm.trim());
+        addToast('تم إضافة نوع المنتج بنجاح', 'success');
       }
-      addProductType(productTypeForm.trim());
-      addToast('تم إضافة نوع المنتج بنجاح', 'success');
+      setIsProductTypeModalOpen(false);
+    } catch (error) {
+      console.error('Error saving product type:', error);
+      addToast('حدث خطأ أثناء حفظ نوع المنتج', 'error');
     }
-    setIsProductTypeModalOpen(false);
   };
 
   const handleDeleteProductType = (type: string) => {
-    if (window.confirm(`هل أنت متأكد من حذف نوع "${type}"؟ سيتم إزالة هذا النوع من المنتجات المرتبطة به.`)) {
-      deleteProductType(type);
-      addToast('تم حذف نوع المنتج بنجاح', 'success');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'حذف نوع منتج',
+      message: `هل أنت متأكد من حذف نوع "${type}"؟ سيتم إزالة هذا النوع من المنتجات المرتبطة به.`,
+      onConfirm: async () => {
+        try {
+          await deleteProductType(type);
+          addToast('تم حذف نوع المنتج بنجاح', 'success');
+        } catch (error) {
+          console.error('Error deleting product type:', error);
+          addToast('حدث خطأ أثناء حذف نوع المنتج', 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
-  const handleSaveManufacturer = (e: React.FormEvent) => {
+  const handleSaveManufacturer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manufacturerForm.trim()) return;
     
-    if (editingManufacturer) {
-      updateManufacturer(editingManufacturer.old, manufacturerForm.trim());
-      addToast('تم تحديث الشركة المصنعة بنجاح', 'success');
-    } else {
-      if (manufacturers.includes(manufacturerForm.trim())) {
-        addToast('هذه الشركة موجودة مسبقاً', 'error');
-        return;
+    try {
+      if (editingManufacturer) {
+        await updateManufacturer(editingManufacturer.old, manufacturerForm.trim());
+        addToast('تم تحديث الشركة المصنعة بنجاح', 'success');
+      } else {
+        if (manufacturers.includes(manufacturerForm.trim())) {
+          addToast('هذه الشركة موجودة مسبقاً', 'error');
+          return;
+        }
+        await addManufacturer(manufacturerForm.trim());
+        addToast('تم إضافة الشركة المصنعة بنجاح', 'success');
       }
-      addManufacturer(manufacturerForm.trim());
-      addToast('تم إضافة الشركة المصنعة بنجاح', 'success');
+      setIsManufacturerModalOpen(false);
+    } catch (error) {
+      console.error('Error saving manufacturer:', error);
+      addToast('حدث خطأ أثناء حفظ الشركة المصنعة', 'error');
     }
-    setIsManufacturerModalOpen(false);
   };
 
   const handleDeleteManufacturer = (manufacturer: string) => {
-    if (window.confirm(`هل أنت متأكد من حذف شركة "${manufacturer}"؟ سيتم إزالة هذه الشركة من المنتجات المرتبطة بها.`)) {
-      deleteManufacturer(manufacturer);
-      addToast('تم حذف الشركة المصنعة بنجاح', 'success');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'حذف شركة مصنعة',
+      message: `هل أنت متأكد من حذف شركة "${manufacturer}"؟ سيتم إزالة هذه الشركة من المنتجات المرتبطة بها.`,
+      onConfirm: async () => {
+        try {
+          await deleteManufacturer(manufacturer);
+          addToast('تم حذف الشركة المصنعة بنجاح', 'success');
+        } catch (error) {
+          console.error('Error deleting manufacturer:', error);
+          addToast('حدث خطأ أثناء حذف الشركة المصنعة', 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -374,13 +493,15 @@ export const AdminDashboard: React.FC = () => {
               <th className="p-4 font-medium">العميل</th>
               <th className="p-4 font-medium">التاريخ</th>
               <th className="p-4 font-medium">الإجمالي</th>
+              <th className="p-4 font-medium">طريقة الدفع</th>
+              <th className="p-4 font-medium">السند</th>
               <th className="p-4 font-medium">الحالة</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-text-muted">لا توجد طلبات حالياً</td>
+                <td colSpan={7} className="p-8 text-center text-text-muted">لا توجد طلبات حالياً</td>
               </tr>
             ) : (
               orders.map(order => {
@@ -393,7 +514,25 @@ export const AdminDashboard: React.FC = () => {
                       <div className="text-xs text-text-muted">{customer?.businessType}</div>
                     </td>
                     <td className="p-4 text-text-muted">{order.date}</td>
-                    <td className="p-4 font-bold">{order.totalYer.toLocaleString()} ريال</td>
+                    <td className="p-4">
+                      <div className="font-bold">{order.totalYer.toLocaleString()} ريال</div>
+                      {order.promoCode && (
+                        <div className="text-xs text-success bg-success/10 px-2 py-1 rounded inline-block mt-1">
+                          كود: {order.promoCode} (-{order.discountPercentage}%)
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-4 text-sm">{order.paymentMethod}</td>
+                    <td className="p-4">
+                      {order.receiptUrl ? (
+                        <a href={order.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm font-bold flex items-center gap-1">
+                          <ImageIcon className="w-4 h-4" />
+                          عرض السند
+                        </a>
+                      ) : (
+                        <span className="text-text-muted text-sm">-</span>
+                      )}
+                    </td>
                     <td className="p-4">
                       <select
                         value={order.status}
@@ -638,6 +777,76 @@ export const AdminDashboard: React.FC = () => {
     </div>
   );
 
+  const handleConfirmBooking = async (bookingId: string, userId: string | undefined) => {
+    try {
+      await updateBookingStatus(bookingId, 'confirmed');
+      if (userId) {
+        await addUserNotification(userId, 'تم تأكيد حجز الاستشارة الخاصة بك. سنتواصل معك قريباً في الموعد المحدد.');
+      }
+      addToast('تم تأكيد الحجز وإرسال إشعار للعميل', 'success');
+    } catch (error) {
+      addToast('حدث خطأ أثناء تأكيد الحجز', 'error');
+    }
+  };
+
+  const renderBookings = () => (
+    <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+      <div className="p-6 border-b border-border">
+        <h2 className="text-2xl font-bold text-text">طلبات الاستشارة</h2>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-right">
+          <thead className="bg-gray-50 border-b border-border">
+            <tr>
+              <th className="p-4 font-bold text-text">الاسم</th>
+              <th className="p-4 font-bold text-text">المنشأة</th>
+              <th className="p-4 font-bold text-text">الخدمة</th>
+              <th className="p-4 font-bold text-text">الموعد</th>
+              <th className="p-4 font-bold text-text">الهاتف</th>
+              <th className="p-4 font-bold text-text">الحالة</th>
+              <th className="p-4 font-bold text-text">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {bookings.map(booking => (
+              <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
+                <td className="p-4">{booking.name}</td>
+                <td className="p-4">{booking.facilityName}</td>
+                <td className="p-4">{booking.serviceType}</td>
+                <td className="p-4" dir="ltr">{booking.date} {booking.time}</td>
+                <td className="p-4" dir="ltr">{booking.phone}</td>
+                <td className="p-4">
+                  <span className={`text-xs font-bold px-2 py-1 rounded ${
+                    booking.status === 'confirmed' ? 'bg-success/10 text-success' : 
+                    booking.status === 'cancelled' ? 'bg-danger/10 text-danger' : 
+                    'bg-warning/10 text-warning'
+                  }`}>
+                    {booking.status === 'confirmed' ? 'مؤكد' : booking.status === 'cancelled' ? 'ملغي' : 'قيد الانتظار'}
+                  </span>
+                </td>
+                <td className="p-4">
+                  {booking.status === 'pending' && (
+                    <button 
+                      onClick={() => handleConfirmBooking(booking.id, booking.userId)}
+                      className="bg-success hover:bg-green-600 text-white px-3 py-1 rounded text-sm font-bold transition-colors"
+                    >
+                      تأكيد وإشعار
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {bookings.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center text-text-muted">لا توجد طلبات استشارة حالياً</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   const renderPromos = () => (
     <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
       <div className="p-6 border-b border-border flex justify-between items-center">
@@ -773,6 +982,84 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </div>
 
+          <h3 className="text-lg font-bold text-text mt-8 mb-4 border-t border-border pt-6">حسابات الدفع (البنوك والمحافظ)</h3>
+          <div className="space-y-4">
+            {settingsForm.paymentAccounts?.map((acc, index) => (
+              <div key={acc.id} className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-lg border border-border">
+                <select
+                  value={acc.type}
+                  onChange={e => {
+                    const newAccs = [...(settingsForm.paymentAccounts || [])];
+                    newAccs[index].type = e.target.value as 'bank' | 'wallet';
+                    setSettingsForm({...settingsForm, paymentAccounts: newAccs});
+                  }}
+                  className="w-full md:w-auto border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                >
+                  <option value="bank">بنك / صرافة</option>
+                  <option value="wallet">محفظة إلكترونية</option>
+                </select>
+                <input 
+                  type="text" 
+                  placeholder="اسم البنك/المحفظة (مثال: الكريمي)" 
+                  value={acc.providerName} 
+                  onChange={e => {
+                    const newAccs = [...(settingsForm.paymentAccounts || [])];
+                    newAccs[index].providerName = e.target.value;
+                    setSettingsForm({...settingsForm, paymentAccounts: newAccs});
+                  }} 
+                  className="flex-1 border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
+                />
+                <input 
+                  type="text" 
+                  placeholder="اسم الحساب" 
+                  value={acc.accountName} 
+                  onChange={e => {
+                    const newAccs = [...(settingsForm.paymentAccounts || [])];
+                    newAccs[index].accountName = e.target.value;
+                    setSettingsForm({...settingsForm, paymentAccounts: newAccs});
+                  }} 
+                  className="flex-1 border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
+                />
+                <input 
+                  type="text" 
+                  placeholder="رقم الحساب" 
+                  value={acc.accountNumber} 
+                  onChange={e => {
+                    const newAccs = [...(settingsForm.paymentAccounts || [])];
+                    newAccs[index].accountNumber = e.target.value;
+                    setSettingsForm({...settingsForm, paymentAccounts: newAccs});
+                  }} 
+                  dir="ltr" 
+                  className="flex-1 border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary text-right font-mono" 
+                />
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const newAccs = (settingsForm.paymentAccounts || []).filter(a => a.id !== acc.id);
+                    setSettingsForm({...settingsForm, paymentAccounts: newAccs});
+                  }}
+                  className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
+            <button 
+              type="button"
+              onClick={() => {
+                const currentAccs = settingsForm.paymentAccounts || [];
+                setSettingsForm({
+                  ...settingsForm, 
+                  paymentAccounts: [...currentAccs, { id: Date.now().toString(), type: 'bank', providerName: '', accountName: '', accountNumber: '' }]
+                });
+              }}
+              className="flex items-center gap-2 text-primary hover:text-primary-light font-bold text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              إضافة حساب دفع جديد
+            </button>
+          </div>
+
           <div className="pt-6 border-t border-border">
             <button type="submit" className="bg-primary hover:bg-primary-light text-white font-bold py-3 px-8 rounded-lg transition-colors">
               حفظ الإعدادات
@@ -781,48 +1068,57 @@ export const AdminDashboard: React.FC = () => {
         </form>
       </div>
 
+      {/* Admin Account Security */}
       <div className="bg-white rounded-xl border border-border shadow-sm p-6">
-        <h2 className="text-2xl font-bold text-text mb-6">تغيير كلمة مرور المدير</h2>
-        <form onSubmit={handleAdminPasswordUpdate} className="max-w-2xl space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-text mb-2">كلمة المرور الحالية</label>
-            <input 
-              type="password" 
-              required
-              value={adminPasswordForm.currentPassword}
-              onChange={(e) => setAdminPasswordForm({...adminPasswordForm, currentPassword: e.target.value})}
-              dir="ltr" 
-              className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text mb-2">كلمة المرور الجديدة</label>
-            <input 
-              type="password" 
-              required
-              value={adminPasswordForm.newPassword}
-              onChange={(e) => setAdminPasswordForm({...adminPasswordForm, newPassword: e.target.value})}
-              dir="ltr" 
-              className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text mb-2">تأكيد كلمة المرور الجديدة</label>
-            <input 
-              type="password" 
-              required
-              value={adminPasswordForm.confirmPassword}
-              onChange={(e) => setAdminPasswordForm({...adminPasswordForm, confirmPassword: e.target.value})}
-              dir="ltr" 
-              className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
-            />
-          </div>
-          <div className="pt-4 border-t border-border">
-            <button type="submit" className="bg-primary hover:bg-primary-light text-white font-bold py-3 px-8 rounded-lg transition-colors">
-              تحديث كلمة المرور
+        <h2 className="text-2xl font-bold text-text mb-6">أمان حساب المدير</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Update Email */}
+          <form onSubmit={handleUpdateAdminEmail} className="space-y-4">
+            <h3 className="font-bold text-text">تغيير البريد الإلكتروني</h3>
+            <p className="text-sm text-text-muted">سيتم استخدام هذا البريد لتسجيل الدخول إلى لوحة التحكم.</p>
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">البريد الإلكتروني الجديد</label>
+              <input 
+                type="email" 
+                value={adminEmail} 
+                onChange={e => setAdminEmail(e.target.value)} 
+                dir="ltr" 
+                className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary text-right" 
+              />
+            </div>
+            <button 
+              type="submit" 
+              disabled={isUpdatingAccount || adminEmail === user?.email}
+              className="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isUpdatingAccount ? 'جاري التحديث...' : 'تحديث البريد'}
             </button>
-          </div>
-        </form>
+          </form>
+
+          {/* Update Password */}
+          <form onSubmit={handleUpdateAdminPassword} className="space-y-4">
+            <h3 className="font-bold text-text">تغيير كلمة المرور</h3>
+            <p className="text-sm text-text-muted">تأكد من اختيار كلمة مرور قوية ومعقدة.</p>
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">كلمة المرور الجديدة</label>
+              <input 
+                type="password" 
+                value={adminPassword} 
+                onChange={e => setAdminPassword(e.target.value)} 
+                dir="ltr" 
+                className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary text-right" 
+                placeholder="6 أحرف على الأقل"
+              />
+            </div>
+            <button 
+              type="submit" 
+              disabled={isUpdatingAccount || !adminPassword}
+              className="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isUpdatingAccount ? 'جاري التحديث...' : 'تحديث كلمة المرور'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -861,6 +1157,10 @@ export const AdminDashboard: React.FC = () => {
               <Users className="w-5 h-5" />
               <span className="font-bold">العملاء</span>
             </button>
+            <button onClick={() => setActiveTab('bookings')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <Calendar className="w-5 h-5" />
+              <span className="font-bold">الاستشارات</span>
+            </button>
             <button onClick={() => setActiveTab('promos')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'promos' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <Tag className="w-5 h-5" />
               <span className="font-bold">العروض</span>
@@ -881,6 +1181,7 @@ export const AdminDashboard: React.FC = () => {
           {activeTab === 'types' && renderProductTypes()}
           {activeTab === 'manufacturers' && renderManufacturers()}
           {activeTab === 'users' && renderUsers()}
+          {activeTab === 'bookings' && renderBookings()}
           {activeTab === 'promos' && renderPromos()}
           {activeTab === 'settings' && renderSettings()}
         </div>
@@ -888,256 +1189,356 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Product Modal */}
       {isProductModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl my-8">
-            <div className="flex justify-between items-center p-6 border-b border-border sticky top-0 bg-white rounded-t-2xl z-10">
-              <h2 className="text-2xl font-bold">{editingProduct ? 'تعديل منتج' : 'إضافة منتج جديد'}</h2>
-              <button onClick={() => setIsProductModalOpen(false)} className="text-text-muted hover:text-danger">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-border bg-white shrink-0">
+              <h2 className="text-2xl font-bold text-text">{editingProduct ? 'تعديل منتج' : 'إضافة منتج جديد'}</h2>
+              <button onClick={() => setIsProductModalOpen(false)} className="text-text-muted hover:text-danger transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-6">
-              <form onSubmit={handleSaveProduct} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">الاسم (عربي)</label>
-                    <input required type="text" value={productForm.nameAr} onChange={e => setProductForm({...productForm, nameAr: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">الاسم (إنجليزي)</label>
-                    <input required type="text" dir="ltr" value={productForm.nameEn} onChange={e => setProductForm({...productForm, nameEn: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                  </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+              <form id="productForm" onSubmit={handleSaveProduct} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-2">الوصف</label>
-                    <textarea required rows={3} value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none"></textarea>
+                    <h3 className="text-lg font-bold text-primary border-b border-primary/10 pb-2 mb-4">المعلومات الأساسية</h3>
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium mb-2">السعر (ريال يمني)</label>
-                    <input required type="number" min="0" value={productForm.price_yer} onChange={e => setProductForm({...productForm, price_yer: Number(e.target.value)})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
+                    <label className="block text-sm font-bold text-text mb-2">الاسم (عربي)</label>
+                    <input required type="text" value={productForm.nameAr} onChange={e => setProductForm({...productForm, nameAr: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="أدخل اسم المنتج بالعربية" />
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium mb-2">السعر (دولار)</label>
-                    <input required type="number" min="0" step="0.01" value={productForm.price_usd} onChange={e => setProductForm({...productForm, price_usd: Number(e.target.value)})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
+                    <label className="block text-sm font-bold text-text mb-2">الاسم (إنجليزي)</label>
+                    <input required type="text" dir="ltr" value={productForm.nameEn} onChange={e => setProductForm({...productForm, nameEn: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-right" placeholder="Product Name in English" />
                   </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-bold text-text mb-2">الوصف</label>
+                    <textarea required rows={3} value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="وصف مفصل للمنتج..."></textarea>
+                  </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium mb-2">القسم</label>
-                    <select required value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none">
+                    <label className="block text-sm font-bold text-text mb-2">السعر (ريال يمني)</label>
+                    <div className="relative">
+                      <input required type="number" min="0" value={productForm.price_yer} onChange={e => setProductForm({...productForm, price_yer: Number(e.target.value)})} className="w-full border border-border rounded-xl px-4 py-3 pr-12 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" />
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm font-bold">ريال</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-text mb-2">السعر (دولار)</label>
+                    <div className="relative">
+                      <input required type="number" min="0" step="0.01" value={productForm.price_usd} onChange={e => setProductForm({...productForm, price_usd: Number(e.target.value)})} className="w-full border border-border rounded-xl px-4 py-3 pr-12 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" />
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm font-bold">$</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-text mb-2">القسم</label>
+                    <select required value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none bg-no-repeat bg-[left_1rem_center] bg-[length:1em_1em]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\' /%3E%3C/svg%3E")' }}>
                       {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium mb-2">نوع المنتج</label>
-                    <select value={productForm.type || ''} onChange={e => setProductForm({...productForm, type: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none">
+                    <label className="block text-sm font-bold text-text mb-2">نوع المنتج</label>
+                    <select value={productForm.type || ''} onChange={e => setProductForm({...productForm, type: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none bg-no-repeat bg-[left_1rem_center] bg-[length:1em_1em]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\' /%3E%3C/svg%3E")' }}>
                       <option value="">-- اختر النوع --</option>
                       {productTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium mb-2">الشركة المصنعة (Brand)</label>
-                    <select required value={productForm.brand} onChange={e => setProductForm({...productForm, brand: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none">
+                    <label className="block text-sm font-bold text-text mb-2">الشركة المصنعة (Brand)</label>
+                    <select required value={productForm.brand} onChange={e => setProductForm({...productForm, brand: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none bg-no-repeat bg-[left_1rem_center] bg-[length:1em_1em]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\' /%3E%3C/svg%3E")' }}>
                       <option value="">-- اختر الشركة --</option>
                       {manufacturers.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium mb-2">صورة المنتج</label>
-                    <div className="flex items-center gap-4">
-                      <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-text font-bold py-2 px-4 rounded-lg border border-border transition-colors flex items-center gap-2">
-                        <ImageIcon className="w-5 h-5" />
-                        اختر صورة
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                      </label>
-                      <span className="text-xs text-text-muted">أو الصق رابط الصورة أدناه</span>
-                    </div>
-                    <input type="url" dir="ltr" value={productForm.image} onChange={e => setProductForm({...productForm, image: e.target.value})} placeholder="https://..." className="w-full border border-border rounded-lg px-4 py-2 mt-2 focus:border-primary outline-none" />
-                    {productForm.image && (
-                      <div className="mt-2">
-                        <img src={productForm.image} alt="Preview" className="w-20 h-20 object-contain rounded border border-border bg-gray-50" />
+                    <label className="block text-sm font-bold text-text mb-2">رقم التسجيل</label>
+                    <input required type="text" dir="ltr" value={productForm.registrationNo} onChange={e => setProductForm({...productForm, registrationNo: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-right" placeholder="Registration Number" />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <h3 className="text-lg font-bold text-primary border-b border-primary/10 pb-2 mb-4 mt-4">المخزون والصور</h3>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-text mb-2">صورة المنتج</label>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <label className="cursor-pointer bg-primary/5 hover:bg-primary/10 text-primary font-bold py-2.5 px-4 rounded-xl border border-primary/20 transition-all flex items-center gap-2 flex-1 justify-center">
+                          <ImageIcon className="w-5 h-5" />
+                          اختر صورة من الجهاز
+                          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                        </label>
+                        {productForm.image && (
+                          <button 
+                            type="button"
+                            onClick={() => setProductForm({ ...productForm, image: '' })}
+                            className="bg-danger/5 hover:bg-danger/10 text-danger font-bold py-2.5 px-4 rounded-xl border border-danger/20 transition-all flex items-center gap-2"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                            حذف
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">رقم التسجيل</label>
-                    <input required type="text" dir="ltr" value={productForm.registrationNo} onChange={e => setProductForm({...productForm, registrationNo: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">الحد الأدنى للطلب</label>
-                    <input required type="number" min="1" value={productForm.minOrder} onChange={e => setProductForm({...productForm, minOrder: Number(e.target.value)})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">الكمية المتوفرة في المخزون</label>
-                    <input required type="number" min="0" value={productForm.stockQuantity || 0} onChange={e => setProductForm({...productForm, stockQuantity: Number(e.target.value), inStock: Number(e.target.value) > 0})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">الوحدة (علبة، شريط، كرتون)</label>
-                    <input required type="text" value={productForm.unit} onChange={e => setProductForm({...productForm, unit: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                  </div>
-                  <div className="md:col-span-2 flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-border">
-                    <input type="checkbox" id="inStock" checked={productForm.inStock} onChange={e => setProductForm({...productForm, inStock: e.target.checked})} className="w-5 h-5 text-primary focus:ring-primary rounded" />
-                    <label htmlFor="inStock" className="font-bold cursor-pointer">المنتج متوفر في المخزون</label>
-                  </div>
-                </div>
+                      
+                      <div className="relative">
+                        <input 
+                          type="url" 
+                          dir="ltr" 
+                          value={productForm.image} 
+                          onChange={e => setProductForm({...productForm, image: e.target.value})} 
+                          placeholder="أو الصق رابط الصورة هنا (https://...)" 
+                          className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-right" 
+                        />
+                      </div>
 
-                <div className="border-t border-border pt-6">
-                  <h3 className="font-bold text-lg mb-4">المواصفات الطبية</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">الاسم العلمي</label>
-                      <input type="text" dir="ltr" value={productForm.specs?.scientificName} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, scientificName: e.target.value}})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">الشكل الدوائي</label>
-                      <input type="text" value={productForm.specs?.dosageForm} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, dosageForm: e.target.value}})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">التركيز</label>
-                      <input type="text" dir="ltr" value={productForm.specs?.concentration} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, concentration: e.target.value}})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">العبوة</label>
-                      <input type="text" value={productForm.specs?.packaging} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, packaging: e.target.value}})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
+                      <div className="relative aspect-video w-full rounded-2xl border-2 border-dashed border-border bg-gray-50 flex items-center justify-center overflow-hidden group">
+                        {productForm.image ? (
+                          <>
+                            <img 
+                              src={productForm.image} 
+                              alt="Preview" 
+                              className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/400/300';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">معاينة الصورة</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center p-6">
+                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <ImageIcon className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <p className="text-text-muted font-medium">لم يتم اختيار صورة بعد</p>
+                            <p className="text-xs text-text-muted mt-1">يمكنك رفع صورة أو استخدام رابط مباشر</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-bold text-text mb-2">الحد الأدنى للطلب</label>
+                      <input required type="number" min="1" value={productForm.minOrder} onChange={e => setProductForm({...productForm, minOrder: Number(e.target.value)})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-text mb-2">الكمية المتوفرة في المخزون</label>
+                      <input required type="number" min="0" value={productForm.stockQuantity || 0} onChange={e => setProductForm({...productForm, stockQuantity: Number(e.target.value), inStock: Number(e.target.value) > 0})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-text mb-2">الوحدة (علبة، شريط، كرتون)</label>
+                      <input required type="text" value={productForm.unit} onChange={e => setProductForm({...productForm, unit: e.target.value})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="مثال: علبة (20 كبسولة)" />
+                    </div>
+                    <div className="flex items-center gap-4 p-4 bg-primary/5 rounded-xl border border-primary/10">
+                      <input type="checkbox" id="inStock" checked={productForm.inStock} onChange={e => setProductForm({...productForm, inStock: e.target.checked})} className="w-6 h-6 text-primary focus:ring-primary rounded-lg cursor-pointer" />
+                      <label htmlFor="inStock" className="font-bold cursor-pointer text-text">المنتج متوفر حالياً</label>
+                    </div>
+                  </div>
 
-                <div className="flex justify-end gap-4 pt-6 border-t border-border sticky bottom-0 bg-white pb-2">
-                  <button type="button" onClick={() => setIsProductModalOpen(false)} className="px-6 py-2 rounded-lg font-bold text-text-muted hover:bg-gray-100 transition-colors">
-                    إلغاء
-                  </button>
-                  <button type="submit" className="px-8 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary-light transition-colors flex items-center gap-2">
-                    <Check className="w-5 h-5" />
-                    حفظ المنتج
-                  </button>
+                  <div className="md:col-span-2">
+                    <h3 className="text-lg font-bold text-primary border-b border-primary/10 pb-2 mb-4 mt-4">المواصفات الطبية</h3>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-text mb-2">الاسم العلمي</label>
+                    <input type="text" dir="ltr" value={productForm.specs?.scientificName} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, scientificName: e.target.value}})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-right" placeholder="Scientific Name" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-text mb-2">الشكل الدوائي</label>
+                    <input type="text" value={productForm.specs?.dosageForm} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, dosageForm: e.target.value}})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="مثال: كبسولات، أقراص، شراب" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-text mb-2">التركيز</label>
+                    <input type="text" dir="ltr" value={productForm.specs?.concentration} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, concentration: e.target.value}})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-right" placeholder="مثال: 500mg" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-text mb-2">العبوة</label>
+                    <input type="text" value={productForm.specs?.packaging} onChange={e => setProductForm({...productForm, specs: {...productForm.specs!, packaging: e.target.value}})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="مثال: 2 شريط × 10 كبسولات" />
+                  </div>
                 </div>
               </form>
+            </div>
+
+            <div className="p-6 border-t border-border bg-gray-50 flex justify-end gap-4 shrink-0 rounded-b-2xl">
+              <button type="button" onClick={() => setIsProductModalOpen(false)} className="px-8 py-3 rounded-xl font-bold text-text-muted hover:bg-gray-200 transition-all">
+                إلغاء
+              </button>
+              <button type="submit" form="productForm" className="px-12 py-3 rounded-xl font-bold bg-primary text-white hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                <Check className="w-6 h-6" />
+                {editingProduct ? 'تحديث المنتج' : 'حفظ المنتج'}
+              </button>
             </div>
           </div>
         </div>
       )}
       {/* Promo Modal */}
       {isPromoModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8">
-            <div className="flex justify-between items-center p-6 border-b border-border">
-              <h2 className="text-2xl font-bold">{editingPromo ? 'تعديل عرض' : 'إضافة عرض جديد'}</h2>
-              <button onClick={() => setIsPromoModalOpen(false)} className="text-text-muted hover:text-danger">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-border bg-white shrink-0">
+              <h2 className="text-2xl font-bold text-text">{editingPromo ? 'تعديل عرض' : 'إضافة عرض جديد'}</h2>
+              <button onClick={() => setIsPromoModalOpen(false)} className="text-text-muted hover:text-danger transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-6">
-              <form onSubmit={handleSavePromo} className="space-y-6">
+            <div className="p-6 overflow-y-auto flex-1">
+              <form id="promoForm" onSubmit={handleSavePromo} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2">كود الخصم</label>
-                  <input required type="text" dir="ltr" value={promoForm.code} onChange={e => setPromoForm({...promoForm, code: e.target.value.toUpperCase()})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none uppercase" />
+                  <label className="block text-sm font-bold text-text mb-2">كود الخصم</label>
+                  <input required type="text" dir="ltr" value={promoForm.code} onChange={e => setPromoForm({...promoForm, code: e.target.value.toUpperCase()})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all uppercase text-right" placeholder="EXAMPLE10" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">نسبة الخصم (%)</label>
-                  <input required type="number" min="1" max="100" value={promoForm.discountPercentage} onChange={e => setPromoForm({...promoForm, discountPercentage: Number(e.target.value)})} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" />
+                  <label className="block text-sm font-bold text-text mb-2">نسبة الخصم (%)</label>
+                  <input required type="number" min="1" max="100" value={promoForm.discountPercentage} onChange={e => setPromoForm({...promoForm, discountPercentage: Number(e.target.value)})} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" />
                 </div>
-                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-border">
-                  <input type="checkbox" id="isActive" checked={promoForm.isActive} onChange={e => setPromoForm({...promoForm, isActive: e.target.checked})} className="w-5 h-5 text-primary focus:ring-primary rounded" />
-                  <label htmlFor="isActive" className="font-bold cursor-pointer">العرض نشط</label>
-                </div>
-                <div className="flex justify-end gap-4 pt-6 border-t border-border">
-                  <button type="button" onClick={() => setIsPromoModalOpen(false)} className="px-6 py-2 rounded-lg font-bold text-text-muted hover:bg-gray-100 transition-colors">
-                    إلغاء
-                  </button>
-                  <button type="submit" className="px-8 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary-light transition-colors flex items-center gap-2">
-                    <Check className="w-5 h-5" />
-                    حفظ العرض
-                  </button>
+                <div className="flex items-center gap-4 p-4 bg-primary/5 rounded-xl border border-primary/10">
+                  <input type="checkbox" id="isActive" checked={promoForm.isActive} onChange={e => setPromoForm({...promoForm, isActive: e.target.checked})} className="w-6 h-6 text-primary focus:ring-primary rounded-lg cursor-pointer" />
+                  <label htmlFor="isActive" className="font-bold cursor-pointer text-text">العرض نشط حالياً</label>
                 </div>
               </form>
+            </div>
+            <div className="p-6 border-t border-border bg-gray-50 flex justify-end gap-4 shrink-0">
+              <button type="button" onClick={() => setIsPromoModalOpen(false)} className="px-6 py-2 rounded-xl font-bold text-text-muted hover:bg-gray-200 transition-all">
+                إلغاء
+              </button>
+              <button type="submit" form="promoForm" className="px-8 py-2 rounded-xl font-bold bg-primary text-white hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                <Check className="w-5 h-5" />
+                حفظ العرض
+              </button>
             </div>
           </div>
         </div>
       )}
       {/* Category Modal */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8">
-            <div className="flex justify-between items-center p-6 border-b border-border">
-              <h2 className="text-2xl font-bold">{editingCategory ? 'تعديل قسم' : 'إضافة قسم جديد'}</h2>
-              <button onClick={() => setIsCategoryModalOpen(false)} className="text-text-muted hover:text-danger">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-border bg-white shrink-0">
+              <h2 className="text-2xl font-bold text-text">{editingCategory ? 'تعديل قسم' : 'إضافة قسم جديد'}</h2>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-text-muted hover:text-danger transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
             <div className="p-6">
-              <form onSubmit={handleSaveCategory} className="space-y-6">
+              <form id="categoryForm" onSubmit={handleSaveCategory} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2">اسم القسم</label>
-                  <input required type="text" value={categoryForm} onChange={e => setCategoryForm(e.target.value)} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" placeholder="مثال: أجهزة طبية" />
-                </div>
-                <div className="flex justify-end gap-4 pt-6 border-t border-border">
-                  <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="px-6 py-2 rounded-lg font-bold text-text-muted hover:bg-gray-100 transition-colors">
-                    إلغاء
-                  </button>
-                  <button type="submit" className="px-8 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary-light transition-colors flex items-center gap-2">
-                    <Check className="w-5 h-5" />
-                    حفظ القسم
-                  </button>
+                  <label className="block text-sm font-bold text-text mb-2">اسم القسم</label>
+                  <input required type="text" value={categoryForm} onChange={e => setCategoryForm(e.target.value)} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="مثال: أجهزة طبية" />
                 </div>
               </form>
+            </div>
+            <div className="p-6 border-t border-border bg-gray-50 flex justify-end gap-4 shrink-0">
+              <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="px-6 py-2 rounded-xl font-bold text-text-muted hover:bg-gray-200 transition-all">
+                إلغاء
+              </button>
+              <button type="submit" form="categoryForm" className="px-8 py-2 rounded-xl font-bold bg-primary text-white hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                <Check className="w-5 h-5" />
+                حفظ القسم
+              </button>
             </div>
           </div>
         </div>
       )}
       {/* Product Type Modal */}
       {isProductTypeModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8">
-            <div className="flex justify-between items-center p-6 border-b border-border">
-              <h2 className="text-2xl font-bold">{editingProductType ? 'تعديل نوع' : 'إضافة نوع جديد'}</h2>
-              <button onClick={() => setIsProductTypeModalOpen(false)} className="text-text-muted hover:text-danger">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-border bg-white shrink-0">
+              <h2 className="text-2xl font-bold text-text">{editingProductType ? 'تعديل نوع' : 'إضافة نوع جديد'}</h2>
+              <button onClick={() => setIsProductTypeModalOpen(false)} className="text-text-muted hover:text-danger transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
             <div className="p-6">
-              <form onSubmit={handleSaveProductType} className="space-y-6">
+              <form id="productTypeForm" onSubmit={handleSaveProductType} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2">اسم النوع</label>
-                  <input required type="text" value={productTypeForm} onChange={e => setProductTypeForm(e.target.value)} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" placeholder="مثال: أدوية" />
-                </div>
-                <div className="flex justify-end gap-4 pt-6 border-t border-border">
-                  <button type="button" onClick={() => setIsProductTypeModalOpen(false)} className="px-6 py-2 rounded-lg font-bold text-text-muted hover:bg-gray-100 transition-colors">
-                    إلغاء
-                  </button>
-                  <button type="submit" className="px-8 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary-light transition-colors flex items-center gap-2">
-                    <Check className="w-5 h-5" />
-                    حفظ النوع
-                  </button>
+                  <label className="block text-sm font-bold text-text mb-2">اسم النوع</label>
+                  <input required type="text" value={productTypeForm} onChange={e => setProductTypeForm(e.target.value)} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="مثال: أدوية" />
                 </div>
               </form>
+            </div>
+            <div className="p-6 border-t border-border bg-gray-50 flex justify-end gap-4 shrink-0">
+              <button type="button" onClick={() => setIsProductTypeModalOpen(false)} className="px-6 py-2 rounded-xl font-bold text-text-muted hover:bg-gray-200 transition-all">
+                إلغاء
+              </button>
+              <button type="submit" form="productTypeForm" className="px-8 py-2 rounded-xl font-bold bg-primary text-white hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                <Check className="w-5 h-5" />
+                حفظ النوع
+              </button>
             </div>
           </div>
         </div>
       )}
       {/* Manufacturer Modal */}
       {isManufacturerModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8">
-            <div className="flex justify-between items-center p-6 border-b border-border">
-              <h2 className="text-2xl font-bold">{editingManufacturer ? 'تعديل شركة' : 'إضافة شركة جديدة'}</h2>
-              <button onClick={() => setIsManufacturerModalOpen(false)} className="text-text-muted hover:text-danger">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-border bg-white shrink-0">
+              <h2 className="text-2xl font-bold text-text">{editingManufacturer ? 'تعديل شركة' : 'إضافة شركة جديدة'}</h2>
+              <button onClick={() => setIsManufacturerModalOpen(false)} className="text-text-muted hover:text-danger transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
             <div className="p-6">
-              <form onSubmit={handleSaveManufacturer} className="space-y-6">
+              <form id="manufacturerForm" onSubmit={handleSaveManufacturer} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2">اسم الشركة</label>
-                  <input required type="text" value={manufacturerForm} onChange={e => setManufacturerForm(e.target.value)} className="w-full border border-border rounded-lg px-4 py-2 focus:border-primary outline-none" placeholder="مثال: PharmaCare" />
-                </div>
-                <div className="flex justify-end gap-4 pt-6 border-t border-border">
-                  <button type="button" onClick={() => setIsManufacturerModalOpen(false)} className="px-6 py-2 rounded-lg font-bold text-text-muted hover:bg-gray-100 transition-colors">
-                    إلغاء
-                  </button>
-                  <button type="submit" className="px-8 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary-light transition-colors flex items-center gap-2">
-                    <Check className="w-5 h-5" />
-                    حفظ الشركة
-                  </button>
+                  <label className="block text-sm font-bold text-text mb-2">اسم الشركة</label>
+                  <input required type="text" value={manufacturerForm} onChange={e => setManufacturerForm(e.target.value)} className="w-full border border-border rounded-xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="مثال: PharmaCare" />
                 </div>
               </form>
+            </div>
+            <div className="p-6 border-t border-border bg-gray-50 flex justify-end gap-4 shrink-0">
+              <button type="button" onClick={() => setIsManufacturerModalOpen(false)} className="px-6 py-2 rounded-xl font-bold text-text-muted hover:bg-gray-200 transition-all">
+                إلغاء
+              </button>
+              <button type="submit" form="manufacturerForm" className="px-8 py-2 rounded-xl font-bold bg-primary text-white hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                <Check className="w-5 h-5" />
+                حفظ الشركة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-danger/10 text-danger rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-text mb-2">{confirmModal.title}</h3>
+              <p className="text-text-muted">{confirmModal.message}</p>
+            </div>
+            <div className="p-4 bg-gray-50 flex gap-3">
+              <button 
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 px-4 py-2 rounded-xl font-bold text-text-muted hover:bg-gray-200 transition-all"
+              >
+                إلغاء
+              </button>
+              <button 
+                onClick={confirmModal.onConfirm}
+                className="flex-1 px-4 py-2 rounded-xl font-bold bg-danger text-white hover:bg-danger/90 transition-all"
+              >
+                تأكيد الحذف
+              </button>
             </div>
           </div>
         </div>

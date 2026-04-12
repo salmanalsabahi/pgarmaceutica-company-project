@@ -1,62 +1,77 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUserStore, User } from '../store/useUserStore';
+import { useUserStore } from '../store/useUserStore';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { LogIn, Mail } from 'lucide-react';
 
 export const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const { login, registerUser, users } = useUserStore();
+  const { loginWithGoogle, loginWithEmail, registerWithEmail, user } = useUserStore();
   const { addToast } = useNotificationStore();
   const navigate = useNavigate();
-
+  
+  const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [businessType, setBusinessType] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (isLogin) {
-      const user = users.find(u => u.email === email && u.password === password);
-      if (user) {
-        login(user);
-        addToast('تم تسجيل الدخول بنجاح', 'success');
-        if (user.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      } else {
-        addToast('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error');
-      }
-    } else {
-      if (users.some(u => u.email === email)) {
-        addToast('البريد الإلكتروني مسجل مسبقاً', 'error');
-        return;
-      }
-      
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        name,
-        email,
-        password,
-        businessType,
-        role: 'user',
-        wishlist: []
-      };
-      
-      registerUser(newUser);
-      login(newUser);
-      addToast('تم إنشاء الحساب بنجاح', 'success');
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    try {
+      await loginWithGoogle();
+      addToast('تم تسجيل الدخول بنجاح', 'success');
       navigate('/dashboard');
+    } catch (error) {
+      addToast('حدث خطأ أثناء تسجيل الدخول', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleAdminLogin = () => {
-    setEmail('admin@alshifa.com');
-    setPassword('admin123');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      if (isLogin) {
+        await loginWithEmail(email, password);
+        addToast('تم تسجيل الدخول بنجاح', 'success');
+        navigate('/dashboard');
+      } else {
+        await registerWithEmail(email, password, name, businessType);
+        addToast('تم إنشاء الحساب بنجاح', 'success');
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/email-already-in-use') {
+        addToast('البريد الإلكتروني مسجل مسبقاً', 'error');
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        addToast('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error');
+      } else if (error.code === 'auth/weak-password') {
+        addToast('كلمة المرور ضعيفة جداً، يجب أن تكون 6 أحرف على الأقل', 'error');
+      } else {
+        addToast('حدث خطأ أثناء العملية، تأكد من صحة البيانات', 'error');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleForgotPassword = () => {
+    addToast('الرجاء التواصل مع إدارة النظام (عبر الواتساب أو الإيميل) لإعادة تعيين كلمة المرور الخاصة بك.', 'info');
+  };
+
+  // If user is already logged in, redirect
+  React.useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [user, navigate]);
 
   return (
     <div className="bg-bg min-h-screen py-16 flex items-center justify-center">
@@ -132,6 +147,7 @@ export const Auth: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
                 dir="ltr" 
+                minLength={6}
               />
             </div>
 
@@ -141,28 +157,33 @@ export const Auth: React.FC = () => {
                   <input type="checkbox" className="text-primary focus:ring-primary rounded" />
                   <span className="text-text-muted">تذكرني</span>
                 </label>
-                <a href="#" className="text-primary hover:underline">نسيت كلمة المرور؟</a>
+                <button type="button" onClick={handleForgotPassword} className="text-primary hover:underline">نسيت كلمة المرور؟</button>
               </div>
             )}
 
-            <button type="submit" className="w-full bg-primary hover:bg-primary-light text-white font-bold py-3 rounded-lg transition-colors mt-6">
-              {isLogin ? 'دخول' : 'إنشاء حساب جديد'}
+            <button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full bg-primary hover:bg-primary-light text-white font-bold py-3 rounded-lg transition-colors mt-6 flex items-center justify-center gap-2"
+            >
+              {isLoading ? 'جاري المعالجة...' : (isLogin ? 'دخول' : 'إنشاء حساب جديد')}
             </button>
           </form>
 
-          {/* Demo Admin Login Button */}
-          {isLogin && (
-            <div className="mt-6 pt-6 border-t border-border text-center">
-              <p className="text-sm text-text-muted mb-4">لأغراض التجربة فقط:</p>
-              <button 
-                type="button"
-                onClick={handleAdminLogin}
-                className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-lg transition-colors text-sm"
-              >
-                تعبئة بيانات مدير النظام (Admin)
-              </button>
+          <div className="mt-8 pt-6 border-t border-border relative">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-sm text-text-muted">
+              أو
             </div>
-          )}
+            <button 
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full bg-white border border-border hover:bg-gray-50 text-text font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-3 shadow-sm"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+              المتابعة باستخدام حساب جوجل
+            </button>
+          </div>
         </div>
       </div>
     </div>

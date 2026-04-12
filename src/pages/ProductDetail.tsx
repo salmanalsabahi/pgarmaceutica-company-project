@@ -5,6 +5,7 @@ import { useProductStore } from '../store/useProductStore';
 import { useCartStore } from '../store/useCartStore';
 import { useNotificationStore } from '../store/useNotificationStore';
 import { useUserStore } from '../store/useUserStore';
+import { ProductCard } from '../components/ProductCard';
 
 export const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -302,20 +303,9 @@ export const ProductDetail: React.FC = () => {
                 عرض المزيد <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {relatedProducts.map(p => (
-                <Link key={p.id} to={`/product/${p.id}`} className="bg-white rounded-xl border border-border p-4 hover:shadow-md transition-shadow flex flex-col items-center text-center">
-                  <img src={p.image} alt={p.nameAr} className="w-32 h-32 object-contain mix-blend-multiply mb-4" />
-                  <h4 className="font-bold text-sm mb-1 line-clamp-1">{p.nameAr}</h4>
-                  <div className="flex items-center gap-1 mb-2">
-                    <div className="flex items-center text-yellow-400">
-                      <Star className="w-3 h-3 fill-current" />
-                      <span className="text-xs font-bold text-text ml-1">{p.rating ? p.rating.toFixed(1) : '0.0'}</span>
-                    </div>
-                    <span className="text-xs text-text-muted">({p.reviewsCount || 0})</span>
-                  </div>
-                  <p className="text-primary font-bold">{p.price_yer.toLocaleString()} ريال</p>
-                </Link>
+                <ProductCard key={p.id} product={p} />
               ))}
             </div>
           </div>

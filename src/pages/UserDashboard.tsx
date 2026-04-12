@@ -13,18 +13,12 @@ const mockOrders = [
 export const UserDashboard: React.FC = () => {
   const { user, logout, updateUser, markNotificationsAsRead } = useUserStore();
   const { addToast } = useNotificationStore();
-  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'profile' | 'password' | 'notifications'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'profile' | 'notifications'>('orders');
 
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
     businessType: user?.businessType || ''
-  });
-
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
   });
 
   if (!user) {
@@ -47,26 +41,7 @@ export const UserDashboard: React.FC = () => {
     addToast('تم تحديث البيانات بنجاح', 'success');
   };
 
-  const handlePasswordUpdate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordForm.currentPassword !== user.password) {
-      addToast('كلمة المرور الحالية غير صحيحة', 'error');
-      return;
-    }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      addToast('كلمتا المرور غير متطابقتين', 'error');
-      return;
-    }
-    if (passwordForm.newPassword.length < 6) {
-      addToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error');
-      return;
-    }
-    updateUser(user.id, { password: passwordForm.newPassword });
-    addToast('تم تحديث كلمة المرور بنجاح', 'success');
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  };
-
-  const handleTabChange = (tab: 'orders' | 'wishlist' | 'profile' | 'password' | 'notifications') => {
+  const handleTabChange = (tab: 'orders' | 'wishlist' | 'profile' | 'notifications') => {
     setActiveTab(tab);
     if (tab === 'notifications') {
       markNotificationsAsRead(user.id);
@@ -130,16 +105,6 @@ export const UserDashboard: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <User className="w-5 h-5" />
                     <span className="font-medium">بياناتي</span>
-                  </div>
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => handleTabChange('password')}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${activeTab === 'password' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Key className="w-5 h-5" />
-                    <span className="font-medium">كلمة المرور</span>
                   </div>
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -270,50 +235,6 @@ export const UserDashboard: React.FC = () => {
                     </div>
                     <button type="submit" className="bg-primary hover:bg-primary-light text-white font-bold py-2 px-8 rounded-lg transition-colors">
                       حفظ التعديلات
-                    </button>
-                  </form>
-                </div>
-              )}
-
-              {activeTab === 'password' && (
-                <div>
-                  <h2 className="text-2xl font-bold mb-6">تغيير كلمة المرور</h2>
-                  <form onSubmit={handlePasswordUpdate} className="max-w-xl space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-text mb-2">كلمة المرور الحالية</label>
-                      <input 
-                        type="password" 
-                        required
-                        value={passwordForm.currentPassword}
-                        onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                        dir="ltr" 
-                        className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-text mb-2">كلمة المرور الجديدة</label>
-                      <input 
-                        type="password" 
-                        required
-                        value={passwordForm.newPassword}
-                        onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                        dir="ltr" 
-                        className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-text mb-2">تأكيد كلمة المرور الجديدة</label>
-                      <input 
-                        type="password" 
-                        required
-                        value={passwordForm.confirmPassword}
-                        onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                        dir="ltr" 
-                        className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
-                      />
-                    </div>
-                    <button type="submit" className="bg-primary hover:bg-primary-light text-white font-bold py-2 px-8 rounded-lg transition-colors">
-                      تحديث كلمة المرور
                     </button>
                   </form>
                 </div>

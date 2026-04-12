@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, CreditCard, Truck, MapPin } from 'lucide-react';
+import { CheckCircle2, CreditCard, Truck, MapPin, Upload, Tag } from 'lucide-react';
 import { useCartStore } from '../store/useCartStore';
 import { useOrderStore, Order } from '../store/useOrderStore';
 import { useUserStore } from '../store/useUserStore';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 const governorates = [
   "صنعاء", "عدن", "تعز", "الحديدة", "إب", "حضرموت", "ذمار", "حجة", 
@@ -12,15 +13,57 @@ const governorates = [
   "الضالع", "الجوف", "مأرب", "المحويت", "ريمة", "سقطرى"
 ];
 
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        resolve(dataUrl);
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 export const Checkout: React.FC = () => {
-  const { items, getFinalTotalYer, getFinalTotalUsd, clearCart } = useCartStore();
+  const { items, getFinalTotalYer, getFinalTotalUsd, clearCart, promoCode, discount, applyPromoCode, removePromoCode, getTotalYer } = useCartStore();
   const { addOrder } = useOrderStore();
   const { user } = useUserStore();
   const { addToast } = useNotificationStore();
+  const { settings } = useSettingsStore();
   const navigate = useNavigate();
   
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [orderId, setOrderId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state
   const [shippingInfo, setShippingInfo] = useState({
@@ -32,6 +75,9 @@ export const Checkout: React.FC = () => {
     address: ''
   });
   const [paymentMethod, setPaymentMethod] = useState('تحويل بنكي');
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [promoInput, setPromoInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (items.length === 0 && step !== 3) {
     navigate('/cart');
@@ -43,33 +89,77 @@ export const Checkout: React.FC = () => {
     if (step < 3) setStep((s) => (s + 1) as 1 | 2 | 3);
   };
 
-  const handleComplete = () => {
+  const handleApplyPromo = () => {
+    if (!promoInput.trim()) return;
+    const success = applyPromoCode(promoInput.trim());
+    if (success) {
+      addToast('تم تطبيق كود الخصم بنجاح', 'success');
+      setPromoInput('');
+    } else {
+      addToast('كود الخصم غير صالح أو منتهي الصلاحية', 'error');
+    }
+  };
+
+  const handleComplete = async () => {
     if (!user) {
       addToast('يجب تسجيل الدخول لإتمام الطلب', 'error');
       navigate('/auth');
       return;
     }
 
-    const newOrderId = `ORD-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-    setOrderId(newOrderId);
+    if ((paymentMethod === 'تحويل بنكي' || paymentMethod === 'محفظة إلكترونية') && !receiptFile) {
+      addToast('يجب إرفاق صورة سند التحويل لإتمام الطلب', 'error');
+      return;
+    }
 
-    const newOrder: Order = {
-      id: newOrderId,
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      items: [...items],
-      totalYer: getFinalTotalYer(),
-      totalUsd: getFinalTotalUsd(),
-      status: 'جديد',
-      shippingInfo,
-      paymentMethod
-    };
+    setIsSubmitting(true);
 
-    addOrder(newOrder);
-    clearCart();
-    addToast('تم استلام طلبك بنجاح!', 'success');
-    setStep(3);
+    try {
+      let receiptUrl = '';
+      if (receiptFile) {
+        try {
+          receiptUrl = await compressImage(receiptFile);
+        } catch (err) {
+          console.error("Error compressing image:", err);
+          addToast('حدث خطأ أثناء معالجة الصورة', 'error');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      const newOrderId = `ORD-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+      setOrderId(newOrderId);
+
+      const newOrder: any = {
+        id: newOrderId,
+        userId: user.id,
+        date: new Date().toISOString().split('T')[0],
+        items: [...items],
+        totalYer: getFinalTotalYer(),
+        totalUsd: getFinalTotalUsd(),
+        status: 'جديد',
+        shippingInfo,
+        paymentMethod,
+      };
+
+      if (receiptUrl) newOrder.receiptUrl = receiptUrl;
+      if (promoCode) newOrder.promoCode = promoCode;
+      if (discount) newOrder.discountPercentage = discount * 100;
+
+      await addOrder(newOrder as Order);
+      clearCart();
+      addToast('تم استلام طلبك بنجاح!', 'success');
+      setStep(3);
+    } catch (error) {
+      console.error("Error completing order:", error);
+      addToast('حدث خطأ أثناء إتمام الطلب', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const bankAccounts = settings.paymentAccounts?.filter(acc => acc.type === 'bank') || [];
+  const walletAccounts = settings.paymentAccounts?.filter(acc => acc.type === 'wallet') || [];
 
   return (
     <div className="bg-bg min-h-screen py-8">
@@ -199,9 +289,48 @@ export const Checkout: React.FC = () => {
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="mt-1 w-4 h-4 text-primary focus:ring-primary" 
                   />
-                  <div>
+                  <div className="flex-1">
                     <h3 className="font-bold text-text">تحويل بنكي / صرافة</h3>
-                    <p className="text-sm text-text-muted mt-1">الكريمي، النجم، الامتياز، أو أي شبكة صرافة محلية. سيتم تزويدك ببيانات الحساب بعد تأكيد الطلب.</p>
+                    <p className="text-sm text-text-muted mt-1">قم بتحويل المبلغ إلى أحد حساباتنا البنكية وأرفق صورة السند.</p>
+                    
+                    {paymentMethod === 'تحويل بنكي' && bankAccounts.length > 0 && (
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {bankAccounts.map(acc => (
+                          <div key={acc.id} className="bg-white p-3 rounded border border-border text-sm">
+                            <div className="font-bold text-primary">{acc.providerName}</div>
+                            <div>الاسم: {acc.accountName}</div>
+                            <div dir="ltr" className="text-right font-mono mt-1">{acc.accountNumber}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'محفظة إلكترونية' ? 'border-primary bg-primary/5' : 'border-border hover:bg-gray-50'}`}>
+                  <input 
+                    type="radio" 
+                    name="payment" 
+                    value="محفظة إلكترونية"
+                    checked={paymentMethod === 'محفظة إلكترونية'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="mt-1 w-4 h-4 text-primary focus:ring-primary" 
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-bold text-text">محفظة إلكترونية</h3>
+                    <p className="text-sm text-text-muted mt-1">جوالي، فلوسك، جيب، وغيرها. قم بالتحويل وأرفق صورة السند.</p>
+                    
+                    {paymentMethod === 'محفظة إلكترونية' && walletAccounts.length > 0 && (
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {walletAccounts.map(acc => (
+                          <div key={acc.id} className="bg-white p-3 rounded border border-border text-sm">
+                            <div className="font-bold text-primary">{acc.providerName}</div>
+                            <div>الاسم: {acc.accountName}</div>
+                            <div dir="ltr" className="text-right font-mono mt-1">{acc.accountNumber}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </label>
                 
@@ -211,7 +340,10 @@ export const Checkout: React.FC = () => {
                     name="payment" 
                     value="الدفع عند الاستلام"
                     checked={paymentMethod === 'الدفع عند الاستلام'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    onChange={(e) => {
+                      setPaymentMethod(e.target.value);
+                      setReceiptFile(null); // Clear receipt if switching to COD
+                    }}
                     className="mt-1 w-4 h-4 text-primary focus:ring-primary" 
                   />
                   <div>
@@ -221,19 +353,105 @@ export const Checkout: React.FC = () => {
                 </label>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg mb-8">
-                <div className="flex justify-between items-center font-bold text-lg">
+              {(paymentMethod === 'تحويل بنكي' || paymentMethod === 'محفظة إلكترونية') && (
+                <div className="mb-8 bg-blue-50 p-6 rounded-lg border border-blue-100">
+                  <h3 className="font-bold text-blue-900 mb-4 flex items-center gap-2">
+                    <Upload className="w-5 h-5" />
+                    إرفاق صورة سند التحويل (إجباري)
+                  </h3>
+                  <div className="flex items-center gap-4">
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      ref={fileInputRef}
+                      onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors"
+                    >
+                      اختر صورة السند
+                    </button>
+                    <span className="text-sm text-blue-800">
+                      {receiptFile ? receiptFile.name : 'لم يتم اختيار ملف'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Promo Code Section */}
+              <div className="mb-8 border-t border-border pt-6">
+                <h3 className="font-bold text-text mb-4 flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-primary" />
+                  كود الخصم
+                </h3>
+                {promoCode ? (
+                  <div className="flex items-center justify-between bg-success/10 text-success p-4 rounded-lg border border-success/20">
+                    <div>
+                      <span className="font-bold">تم تطبيق كود الخصم: </span>
+                      <span className="font-mono" dir="ltr">{promoCode}</span>
+                      <span className="mr-2 text-sm">({discount * 100}%)</span>
+                    </div>
+                    <button onClick={removePromoCode} className="text-danger hover:underline text-sm font-bold">
+                      إزالة
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={promoInput}
+                      onChange={(e) => setPromoInput(e.target.value)}
+                      placeholder="أدخل كود الخصم هنا"
+                      className="flex-1 border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                    />
+                    <button 
+                      type="button"
+                      onClick={handleApplyPromo}
+                      className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2 rounded-lg font-bold transition-colors"
+                    >
+                      تطبيق
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gray-50 p-6 rounded-lg mb-8 space-y-3">
+                <div className="flex justify-between items-center text-text-muted">
+                  <span>المجموع الفرعي:</span>
+                  <span>{getTotalYer().toLocaleString()} ريال</span>
+                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between items-center text-success font-bold">
+                    <span>الخصم ({discount * 100}%):</span>
+                    <span>-{(getTotalYer() * discount).toLocaleString()} ريال</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center font-bold text-xl pt-3 border-t border-gray-200">
                   <span>إجمالي المبلغ المطلوب:</span>
                   <span className="text-primary">{getFinalTotalYer().toLocaleString()} ريال</span>
                 </div>
               </div>
 
               <div className="flex justify-between">
-                <button onClick={() => setStep(1)} className="text-text-muted hover:text-text font-medium py-3 px-6 transition-colors">
+                <button onClick={() => setStep(1)} disabled={isSubmitting} className="text-text-muted hover:text-text font-medium py-3 px-6 transition-colors disabled:opacity-50">
                   رجوع
                 </button>
-                <button onClick={handleComplete} className="bg-primary hover:bg-primary-light text-white font-bold py-3 px-8 rounded-lg transition-colors">
-                  تأكيد الطلب
+                <button 
+                  onClick={handleComplete} 
+                  disabled={isSubmitting}
+                  className="bg-primary hover:bg-primary-light text-white font-bold py-3 px-8 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      جاري المعالجة...
+                    </>
+                  ) : (
+                    'تأكيد الطلب'
+                  )}
                 </button>
               </div>
             </div>

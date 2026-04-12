@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "client"] },
+        "notifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "message": { "type": "string" },
+              "date": { "type": "string" },
+              "read": { "type": "boolean" }
+            }
+          }
+        },
+        "wishlist": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameAr": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "description": { "type": "string" },
+        "price_yer": { "type": "number" },
+        "price_usd": { "type": "number" },
+        "category": { "type": "string" },
+        "type": { "type": "string" },
+        "brand": { "type": "string" },
+        "inStock": { "type": "boolean" },
+        "image": { "type": "string" },
+        "specs": {
+          "type": "object",
+          "properties": {
+            "scientificName": { "type": "string" },
+            "activeIngredient": { "type": "string" },
+            "dosage": { "type": "string" },
+            "form": { "type": "string" },
+            "packaging": { "type": "string" }
+          }
+        }
+      },
+      "required": ["id", "nameAr", "nameEn", "price_yer", "price_usd", "category", "brand", "inStock"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "User order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productId": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price_yer": { "type": "number" },
+              "price_usd": { "type": "number" }
+            }
+          }
+        },
+        "total_yer": { "type": "number" },
+        "total_usd": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered", "cancelled"] },
+        "date": { "type": "string" },
+        "shippingAddress": { "type": "string" },
+        "paymentMethod": { "type": "string" }
+      },
+      "required": ["id", "userId", "items", "total_yer", "total_usd", "status", "date", "shippingAddress", "paymentMethod"]
+    },
+    "Promo": {
+      "title": "Promo",
+      "description": "Discount promo code",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "discountPercentage": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "code", "discountPercentage", "isActive"]
+    },
+    "StoreConfig": {
+      "title": "StoreConfig",
+      "description": "Store configurations like categories, types, manufacturers",
+      "type": "object",
+      "properties": {
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "productTypes": { "type": "array", "items": { "type": "string" } },
+        "manufacturers": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Product catalog"
+    },
+    "orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "User orders"
+    },
+    "promos/{promoId}": {
+      "schema": { "$ref": "#/entities/Promo" },
+      "description": "Promo codes"
+    },
+    "config/{configId}": {
+      "schema": { "$ref": "#/entities/StoreConfig" },
+      "description": "Store configurations (e.g. config/main)"
+    }
+  }
+}

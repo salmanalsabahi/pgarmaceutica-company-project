@@ -1,5 +1,17 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { auth, db } from '../firebase';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateEmail,
+  updatePassword,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection } from 'firebase/firestore';
 
 export interface UserNotification {
   id: string;
@@ -12,7 +24,6 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password?: string;
   businessType: string;
   role: 'user' | 'admin';
   wishlist: string[];
@@ -22,95 +33,200 @@ export interface User {
 interface UserState {
   user: User | null;
   users: User[];
-  login: (user: User) => void;
-  logout: () => void;
-  registerUser: (user: User) => void;
-  updateUser: (id: string, data: Partial<User>) => void;
-  toggleWishlist: (productId: string) => void;
-  addUserNotification: (userId: string, message: string) => void;
-  markNotificationsAsRead: (userId: string) => void;
+  isAuthReady: boolean;
+  loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  registerWithEmail: (email: string, password: string, name: string, businessType: string) => Promise<void>;
+  logout: () => Promise<void>;
+  updateUser: (id: string, data: Partial<User>) => Promise<void>;
+  updateEmail: (newEmail: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
+  toggleWishlist: (productId: string) => Promise<void>;
+  addUserNotification: (userId: string, message: string) => Promise<void>;
+  markNotificationsAsRead: (userId: string) => Promise<void>;
 }
 
-const defaultAdmin: User = {
-  id: 'admin-1',
-  name: 'مدير النظام',
-  email: 'admin@alshifa.com',
-  password: 'admin123',
-  businessType: 'موزع',
-  role: 'admin',
-  wishlist: [],
-  notifications: []
-};
-
-const defaultTestUser: User = {
-  id: 'user-1',
-  name: 'صيدلية الأمل - صنعاء',
-  email: 'test@pharmacy.com',
-  password: 'test123',
-  businessType: 'صيدلية',
-  role: 'user',
-  wishlist: [],
-  notifications: []
-};
-
-export const useUserStore = create<UserState>()(
-  persist(
-    (set) => ({
-      user: null,
-      users: [defaultAdmin, defaultTestUser],
-      login: (user) => set({ user }),
-      logout: () => set({ user: null }),
-      registerUser: (newUser) => set((state) => ({ users: [...state.users, { ...newUser, notifications: [] }] })),
-      updateUser: (id, data) => set((state) => {
-        const updatedUsers = state.users.map(u => u.id === id ? { ...u, ...data } : u);
-        const updatedCurrentUser = state.user?.id === id ? { ...state.user, ...data } : state.user;
-        return { users: updatedUsers, user: updatedCurrentUser as User | null };
-      }),
-      toggleWishlist: (productId) => set((state) => {
-        if (!state.user) return state;
-        const wishlist = state.user.wishlist || [];
-        const newWishlist = wishlist.includes(productId) 
-          ? wishlist.filter(id => id !== productId)
-          : [...wishlist, productId];
-        
-        const updatedUser = { ...state.user, wishlist: newWishlist };
-        const updatedUsers = state.users.map(u => u.id === state.user!.id ? updatedUser : u);
-        
-        return { user: updatedUser, users: updatedUsers };
-      }),
-      addUserNotification: (userId, message) => set((state) => {
-        const newNotification: UserNotification = {
-          id: `notif-${Date.now()}`,
-          message,
-          date: new Date().toLocaleDateString('ar-YE'),
-          read: false
-        };
-        const updatedUsers = state.users.map(u => {
-          if (u.id === userId) {
-            return { ...u, notifications: [newNotification, ...(u.notifications || [])] };
+export const useUserStore = create<UserState>((set, get) => {
+  // Initialize auth listener
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    if (firebaseUser) {
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      
+      // Listen to user document changes
+      onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const userData = docSnap.data() as User;
+          
+          set({ user: userData, isAuthReady: true });
+          
+          // If admin, listen to all users
+          if (userData.role === 'admin') {
+            onSnapshot(collection(db, 'users'), (usersSnapshot) => {
+              const allUsers = usersSnapshot.docs.map(d => d.data() as User);
+              set({ users: allUsers });
+            });
           }
-          return u;
-        });
-        const updatedCurrentUser = state.user?.id === userId 
-          ? { ...state.user, notifications: [newNotification, ...(state.user.notifications || [])] } 
-          : state.user;
-        return { users: updatedUsers, user: updatedCurrentUser };
-      }),
-      markNotificationsAsRead: (userId) => set((state) => {
-        const updatedUsers = state.users.map(u => {
-          if (u.id === userId) {
-            return { ...u, notifications: (u.notifications || []).map(n => ({ ...n, read: true })) };
+        } else {
+          // Only auto-create if it's a Google Sign-In (email/password creates the doc during registration)
+          const isGoogleSignIn = firebaseUser.providerData.some(p => p.providerId === 'google.com');
+          
+          if (isGoogleSignIn) {
+            const newUser: User = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || 'مستخدم جديد',
+              email: firebaseUser.email || '',
+              businessType: 'صيدلية', // Default
+              role: firebaseUser.email === 'salmanalsabahi775@gmail.com' ? 'admin' : 'user',
+              wishlist: [],
+              notifications: []
+            };
+            setDoc(userDocRef, newUser).then(() => {
+              set({ user: newUser, isAuthReady: true });
+              if (newUser.role === 'admin') {
+                 onSnapshot(collection(db, 'users'), (usersSnapshot) => {
+                   const allUsers = usersSnapshot.docs.map(d => d.data() as User);
+                   set({ users: allUsers });
+                 });
+              }
+            });
           }
-          return u;
-        });
-        const updatedCurrentUser = state.user?.id === userId 
-          ? { ...state.user, notifications: (state.user.notifications || []).map(n => ({ ...n, read: true })) } 
-          : state.user;
-        return { users: updatedUsers, user: updatedCurrentUser };
-      })
-    }),
-    {
-      name: 'alshifa-user-storage',
+        }
+      });
+    } else {
+      set({ user: null, users: [], isAuthReady: true });
     }
-  )
-);
+  });
+
+  return {
+    user: null,
+    users: [],
+    isAuthReady: false,
+    
+    loginWithGoogle: async () => {
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error("Error signing in with Google", error);
+        throw error;
+      }
+    },
+    
+    loginWithEmail: async (email, password) => {
+      await signInWithEmailAndPassword(auth, email, password);
+    },
+    
+    registerWithEmail: async (email, password, name, businessType) => {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      const newUser: User = {
+        id: firebaseUser.uid,
+        name: name,
+        email: email,
+        businessType: businessType,
+        role: email === 'salmanalsabahi775@gmail.com' ? 'admin' : 'user',
+        wishlist: [],
+        notifications: []
+      };
+      
+      await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+    },
+    
+    logout: async () => {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error("Error signing out", error);
+      }
+    },
+    
+    updateUser: async (id, data) => {
+      try {
+        const userRef = doc(db, 'users', id);
+        await updateDoc(userRef, data);
+      } catch (error) {
+        console.error("Error updating user", error);
+      }
+    },
+
+    updateEmail: async (newEmail) => {
+      if (!auth.currentUser) throw new Error('No user logged in');
+      try {
+        await updateEmail(auth.currentUser, newEmail);
+        // Also update the Firestore document
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, { email: newEmail });
+      } catch (error) {
+        console.error("Error updating email", error);
+        throw error;
+      }
+    },
+
+    updatePassword: async (newPassword) => {
+      if (!auth.currentUser) throw new Error('No user logged in');
+      try {
+        await updatePassword(auth.currentUser, newPassword);
+      } catch (error) {
+        console.error("Error updating password", error);
+        throw error;
+      }
+    },
+    
+    toggleWishlist: async (productId) => {
+      const { user } = get();
+      if (!user) return;
+      
+      const userRef = doc(db, 'users', user.id);
+      const isWishlisted = user.wishlist?.includes(productId);
+      
+      try {
+        if (isWishlisted) {
+          await updateDoc(userRef, {
+            wishlist: arrayRemove(productId)
+          });
+        } else {
+          await updateDoc(userRef, {
+            wishlist: arrayUnion(productId)
+          });
+        }
+      } catch (error) {
+        console.error("Error toggling wishlist", error);
+      }
+    },
+    
+    addUserNotification: async (userId, message) => {
+      const newNotification: UserNotification = {
+        id: `notif-${Date.now()}`,
+        message,
+        date: new Date().toLocaleDateString('ar-YE'),
+        read: false
+      };
+      
+      try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          notifications: arrayUnion(newNotification)
+        });
+      } catch (error) {
+        console.error("Error adding notification", error);
+      }
+    },
+    
+    markNotificationsAsRead: async (userId) => {
+      const { user } = get();
+      if (!user || user.id !== userId || !user.notifications) return;
+      
+      const updatedNotifications = user.notifications.map(n => ({ ...n, read: true }));
+      
+      try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          notifications: updatedNotifications
+        });
+      } catch (error) {
+        console.error("Error marking notifications as read", error);
+      }
+    }
+  };
+});

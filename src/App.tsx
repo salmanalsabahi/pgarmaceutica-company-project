@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
@@ -23,8 +23,27 @@ import { Booking } from './pages/Booking';
 import { Manufacturers } from './pages/Manufacturers';
 import { ProductTypes } from './pages/ProductTypes';
 import { ToastContainer } from './components/Toast';
+import { useProductStore } from './store/useProductStore';
+import { useOrderStore } from './store/useOrderStore';
+import { usePromoStore } from './store/usePromoStore';
+import { useSettingsStore } from './store/useSettingsStore';
+import { useBookingStore } from './store/useBookingStore';
 
 export default function App() {
+  const { initialize: initProducts } = useProductStore();
+  const { initialize: initOrders } = useOrderStore();
+  const { initialize: initPromos } = usePromoStore();
+  const { initialize: initSettings } = useSettingsStore();
+  const { initialize: initBookings } = useBookingStore();
+
+  useEffect(() => {
+    initProducts();
+    initOrders();
+    initPromos();
+    initSettings();
+    initBookings();
+  }, [initProducts, initOrders, initPromos, initSettings, initBookings]);
+
   return (
     <BrowserRouter>
       <ToastContainer />

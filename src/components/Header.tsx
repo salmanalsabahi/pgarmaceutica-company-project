@@ -256,7 +256,9 @@ export const Header: React.FC = () => {
                   className="flex items-center gap-2 text-text hover:text-primary transition-colors"
                 >
                   <LayoutDashboard className="w-5 h-5" />
-                  <span className="font-medium text-sm">لوحة التحكم</span>
+                  <span className="font-medium text-sm">
+                    {user.role === 'admin' ? 'لوحة التحكم' : 'حسابي'}
+                  </span>
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -416,7 +418,7 @@ export const Header: React.FC = () => {
 
             {user ? (
               <>
-                <li><Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>لوحة التحكم</Link></li>
+                <li><Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>{user.role === 'admin' ? 'لوحة التحكم' : 'حسابي'}</Link></li>
                 <li><button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="block py-2 text-danger w-full text-right">تسجيل خروج</button></li>
               </>
             ) : (

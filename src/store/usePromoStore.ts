@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { db } from '../firebase';
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 export interface PromoCode {
   id: string;
@@ -10,34 +11,52 @@ export interface PromoCode {
 
 interface PromoState {
   promos: PromoCode[];
-  addPromo: (promo: PromoCode) => void;
-  updatePromo: (id: string, data: Partial<PromoCode>) => void;
-  deletePromo: (id: string) => void;
+  initialize: () => void;
+  addPromo: (promo: PromoCode) => Promise<void>;
+  updatePromo: (id: string, data: Partial<PromoCode>) => Promise<void>;
+  deletePromo: (id: string) => Promise<void>;
   getPromoByCode: (code: string) => PromoCode | undefined;
 }
 
-const defaultPromos: PromoCode[] = [
-  { id: 'promo-1', code: 'SHIFA10', discountPercentage: 10, isActive: true },
-  { id: 'promo-2', code: 'WELCOME20', discountPercentage: 20, isActive: true }
-];
+export const usePromoStore = create<PromoState>((set, get) => ({
+  promos: [],
+  
+  initialize: () => {
+    onSnapshot(collection(db, 'promos'), (snapshot) => {
+      const promosData = snapshot.docs.map(doc => doc.data() as PromoCode);
+      set({ promos: promosData });
+    });
+  },
 
-export const usePromoStore = create<PromoState>()(
-  persist(
-    (set, get) => ({
-      promos: defaultPromos,
-      addPromo: (promo) => set((state) => ({ promos: [...state.promos, promo] })),
-      updatePromo: (id, data) => set((state) => ({
-        promos: state.promos.map(p => p.id === id ? { ...p, ...data } : p)
-      })),
-      deletePromo: (id) => set((state) => ({
-        promos: state.promos.filter(p => p.id !== id)
-      })),
-      getPromoByCode: (code) => {
-        return get().promos.find(p => p.code.toUpperCase() === code.toUpperCase() && p.isActive);
-      }
-    }),
-    {
-      name: 'alshifa-promo-storage',
+  addPromo: async (promo) => {
+    try {
+      await setDoc(doc(db, 'promos', promo.id), promo);
+    } catch (error) {
+      console.error("Error adding promo: ", error);
+      throw error;
     }
-  )
-);
+  },
+
+  updatePromo: async (id, data) => {
+    try {
+      const promoRef = doc(db, 'promos', id);
+      await updateDoc(promoRef, data);
+    } catch (error) {
+      console.error("Error updating promo: ", error);
+      throw error;
+    }
+  },
+
+  deletePromo: async (id) => {
+    try {
+      await deleteDoc(doc(db, 'promos', id));
+    } catch (error) {
+      console.error("Error deleting promo: ", error);
+      throw error;
+    }
+  },
+
+  getPromoByCode: (code) => {
+    return get().promos.find(p => p.code.toUpperCase() === code.toUpperCase() && p.isActive);
+  }
+}));
