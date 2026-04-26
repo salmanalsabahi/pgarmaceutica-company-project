@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { FloatingContact } from './FloatingContact';
@@ -9,6 +9,19 @@ import { WifiOff } from 'lucide-react';
 export const Layout: React.FC = () => {
   const [showOfflineMessage, setShowOfflineMessage] = useState(!navigator.onLine);
   const [offlineMessage, setOfflineMessage] = useState('الرجاء الاتصال بالانترنت لتحديث البيانات');
+  const { pathname } = useLocation();
+
+  const hideWidgetsPaths = ['/cart', '/checkout', '/auth', '/admin', '/dashboard', '/booking'];
+  const shouldHideWidgets = hideWidgetsPaths.some(p => pathname.startsWith(p));
+
+  useEffect(() => {
+    if (shouldHideWidgets) {
+      document.body.classList.add('hide-widgets');
+    } else {
+      document.body.classList.remove('hide-widgets');
+    }
+    return () => document.body.classList.remove('hide-widgets');
+  }, [shouldHideWidgets]);
 
   useEffect(() => {
     let timer: number;
@@ -62,7 +75,7 @@ export const Layout: React.FC = () => {
         <Outlet />
       </main>
       <Footer />
-      <FloatingContact />
+      {!shouldHideWidgets && <FloatingContact />}
       <MobileNav />
     </div>
   );

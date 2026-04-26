@@ -86,6 +86,9 @@ export const AdminDashboard: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState('');
   const [isUpdatingAccount, setIsUpdatingAccount] = useState(false);
 
+  // Receipt viewer state
+  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+
   // Sync settingsForm when settings change
   React.useEffect(() => {
     setSettingsForm(settings);
@@ -96,21 +99,21 @@ export const AdminDashboard: React.FC = () => {
     if (activeTab === 'bookings') {
       markAllBookingsAsRead();
     }
-  }, [activeTab, bookings, markAllBookingsAsRead]);
+  }, [activeTab]);
 
   // Handle auto-clearing messages when tab is opened
   React.useEffect(() => {
     if (activeTab === 'messages') {
       markAllMessagesAsRead();
     }
-  }, [activeTab, messages, markAllMessagesAsRead]);
+  }, [activeTab]);
 
   // Handle auto-clearing users when tab is opened
   React.useEffect(() => {
     if (activeTab === 'users') {
       markAllUsersAsRead();
     }
-  }, [activeTab, users, markAllUsersAsRead]);
+  }, [activeTab]);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -622,10 +625,10 @@ export const AdminDashboard: React.FC = () => {
                     <td className="p-4 text-sm">{order.paymentMethod}</td>
                     <td className="p-4">
                       {order.receiptUrl ? (
-                        <a href={order.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm font-bold flex items-center gap-1">
+                        <button onClick={() => setSelectedReceipt(order.receiptUrl!)} className="text-primary hover:underline text-sm font-bold flex items-center gap-1">
                           <ImageIcon className="w-4 h-4" />
                           عرض السند
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-text-muted text-sm">-</span>
                       )}
@@ -1383,13 +1386,13 @@ export const AdminDashboard: React.FC = () => {
       <div className="container mx-auto px-4 flex flex-col md:flex-row gap-8">
         {/* Sidebar */}
         <div className="w-full md:w-64 shrink-0">
-          <div className="bg-white rounded-xl border border-border p-4 flex flex-col gap-2 sticky top-24 shadow-sm">
-            <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+          <div className="bg-white rounded-xl border border-border p-2 md:p-4 flex flex-row md:flex-col gap-2 sticky top-[72px] md:top-24 shadow-sm overflow-x-auto md:overflow-visible no-scrollbar z-40">
+            <button onClick={() => setActiveTab('overview')} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <LayoutDashboard className="w-5 h-5" />
               <span className="font-bold">نظرة عامة</span>
             </button>
-            <button onClick={() => { setActiveTab('orders') }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'orders' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
-              <div className="flex items-center gap-3">
+            <button onClick={() => { setActiveTab('orders') }} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'orders' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5" />
                 <span className="font-bold">الطلبات</span>
               </div>
@@ -1399,24 +1402,24 @@ export const AdminDashboard: React.FC = () => {
                 </span>
               )}
             </button>
-            <button onClick={() => setActiveTab('products')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'products' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+            <button onClick={() => setActiveTab('products')} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'products' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <Package className="w-5 h-5" />
               <span className="font-bold">المنتجات</span>
             </button>
-            <button onClick={() => setActiveTab('categories')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'categories' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+            <button onClick={() => setActiveTab('categories')} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'categories' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <FolderTree className="w-5 h-5" />
               <span className="font-bold">الأقسام</span>
             </button>
-            <button onClick={() => setActiveTab('types')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'types' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+            <button onClick={() => setActiveTab('types')} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'types' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <Tag className="w-5 h-5" />
               <span className="font-bold">أنواع المنتجات</span>
             </button>
-            <button onClick={() => setActiveTab('manufacturers')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'manufacturers' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+            <button onClick={() => setActiveTab('manufacturers')} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'manufacturers' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <ImageIcon className="w-5 h-5" />
               <span className="font-bold">الشركات المصنعة</span>
             </button>
-            <button onClick={() => { setActiveTab('users'); markAllUsersAsRead(); }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
-              <div className="flex items-center gap-3">
+            <button onClick={() => { setActiveTab('users'); markAllUsersAsRead(); }} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
                 <span className="font-bold">العملاء</span>
               </div>
@@ -1426,8 +1429,8 @@ export const AdminDashboard: React.FC = () => {
                 </span>
               )}
             </button>
-            <button onClick={() => { setActiveTab('bookings'); markAllBookingsAsRead(); }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
-              <div className="flex items-center gap-3">
+            <button onClick={() => { setActiveTab('bookings'); markAllBookingsAsRead(); }} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
                 <span className="font-bold">الاستشارات</span>
               </div>
@@ -1437,8 +1440,8 @@ export const AdminDashboard: React.FC = () => {
                 </span>
               )}
             </button>
-            <button onClick={() => { setActiveTab('messages'); }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'messages' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
-              <div className="flex items-center gap-3">
+            <button onClick={() => { setActiveTab('messages'); }} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'messages' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5" />
                 <span className="font-bold">الرسائل</span>
               </div>
@@ -1448,11 +1451,11 @@ export const AdminDashboard: React.FC = () => {
                 </span>
               )}
             </button>
-            <button onClick={() => setActiveTab('promos')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'promos' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+            <button onClick={() => setActiveTab('promos')} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'promos' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <Tag className="w-5 h-5" />
               <span className="font-bold">العروض</span>
             </button>
-            <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+            <button onClick={() => setActiveTab('settings')} className={`shrink-0 flex justify-center items-center gap-2 p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <Settings className="w-5 h-5" />
               <span className="font-bold">الإعدادات</span>
             </button>
@@ -1829,6 +1832,25 @@ export const AdminDashboard: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Receipt Viewer Modal */}
+      {selectedReceipt && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4" onClick={() => setSelectedReceipt(null)}>
+          <button 
+            onClick={() => setSelectedReceipt(null)}
+            className="absolute top-4 right-4 text-white hover:text-primary p-2 z-[210] bg-black/40 rounded-full"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img 
+            src={selectedReceipt} 
+            alt="السند" 
+            className="max-w-full max-h-[90vh] object-contain rounded-lg animate-in zoom-in duration-300"
+            onClick={(e) => e.stopPropagation()}
+            referrerPolicy="no-referrer"
+          />
         </div>
       )}
     </div>

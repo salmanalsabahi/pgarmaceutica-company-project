@@ -24,3 +24,9 @@
     @apply font-sans bg-bg text-text antialiased;
   }
 }
+
+body.hide-widgets .n8n-chat-container,
+body.hide-widgets .n8n-chat-toggle,
+body.hide-widgets [class*="n8n-chat"] {
+  display: none !important;
+}

@@ -67,6 +67,13 @@ export const Header: React.FC = () => {
     };
   }, []);
 
+  // Update read state of notifications when closing the panel
+  useEffect(() => {
+    if (!isNotificationsOpen && unreadNotificationsCount > 0 && user) {
+      markNotificationsAsRead(user.id);
+    }
+  }, [isNotificationsOpen, unreadNotificationsCount, user, markNotificationsAsRead]);
+
   const searchSuggestions = searchQuery.trim() === '' ? [] : products.filter(p => 
     p.nameAr.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.nameEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -93,7 +100,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-border">
+    <header className="bg-white shadow-sm sticky top-0 z-[100] border-b border-border">
       {/* Promo Banner */}
       {activePromos.length > 0 && (
         <div className="bg-primary-light text-white py-2 text-sm text-center font-bold relative overflow-hidden">
@@ -237,12 +244,7 @@ export const Header: React.FC = () => {
             {user && (
               <div className="relative" ref={notifRef}>
                 <button 
-                  onClick={() => {
-                    setIsNotificationsOpen(!isNotificationsOpen);
-                    if (!isNotificationsOpen && unreadNotificationsCount > 0) {
-                      markNotificationsAsRead(user.id);
-                    }
-                  }}
+                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                   className="relative text-text hover:text-primary transition-colors p-2"
                 >
                   <Bell className="w-6 h-6" />
@@ -259,10 +261,10 @@ export const Header: React.FC = () => {
                       <h3 className="font-bold text-text">الإشعارات</h3>
                     </div>
                     <div className="max-h-80 overflow-y-auto">
-                      {user.notifications && user.notifications.length > 0 ? (
+                      {user.notifications && user.notifications.filter(n => !n.read).length > 0 ? (
                         <div className="divide-y divide-border">
-                          {user.notifications.map(notif => (
-                            <div key={notif.id} className={`p-4 ${notif.read ? 'bg-white' : 'bg-primary/5'}`}>
+                          {user.notifications.filter(n => !n.read).map(notif => (
+                            <div key={notif.id} className="p-4 bg-primary/5">
                               <p className="text-sm text-text mb-1">{notif.message}</p>
                               <span className="text-xs text-text-muted">{notif.date}</span>
                             </div>
@@ -270,7 +272,7 @@ export const Header: React.FC = () => {
                         </div>
                       ) : (
                         <div className="p-8 text-center text-text-muted">
-                          لا توجد إشعارات
+                          لا توجد إشعارات جديدة
                         </div>
                       )}
                     </div>
@@ -408,7 +410,7 @@ export const Header: React.FC = () => {
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-4">
           <form ref={mobileSearchRef} onSubmit={handleSearch} className="relative">
             <input
               type="text"

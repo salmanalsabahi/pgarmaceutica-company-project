@@ -23,7 +23,7 @@ export const MobileNav: React.FC = () => {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 pb-[env(safe-area-inset-bottom)]">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border z-40 pb-[env(safe-area-inset-bottom)]">
       <div className="flex justify-around items-center h-16">
         {navItems.map((item) => {
           const Icon = item.icon;
