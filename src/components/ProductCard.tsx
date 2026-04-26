@@ -19,6 +19,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لعرض المنتجات وإضافتها للسلة' } }));
+      return;
+    }
     if (!user) {
       addToast('يجب تسجيل الدخول أولاً لإضافة المنتجات إلى السلة', 'error');
       navigate('/auth');

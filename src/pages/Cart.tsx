@@ -95,16 +95,17 @@ export const Cart: React.FC = () => {
                     </div>
 
                     {/* Quantity */}
-                    <div className="col-span-2 flex justify-center w-full md:w-auto">
-                      <div className="flex items-center border border-border rounded-lg bg-gray-50 h-10 overflow-hidden">
+                    <div className="col-span-2 flex justify-center w-full md:w-auto mt-2 md:mt-0">
+                      <div className="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white shadow-sm" dir="ltr">
                         <button 
-                          className="px-3 text-text hover:text-primary transition-colors h-full bg-white border-l border-border"
+                          className="w-12 h-10 flex items-center justify-center bg-gray-100 text-gray-800 font-bold hover:bg-gray-200 hover:text-primary transition-colors border-r border-gray-300 active:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => updateQuantity(item.product.id, Math.max(item.product.minOrder, item.quantity - 1))}
                           disabled={item.quantity <= item.product.minOrder}
+                          aria-label="Decrease quantity"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
-                        <input 
+                        <input
                           type="number"
                           min={item.product.minOrder}
                           value={item.quantity}
@@ -114,11 +115,13 @@ export const Cart: React.FC = () => {
                               updateQuantity(item.product.id, val);
                             }
                           }}
-                          className="w-12 text-center font-medium text-sm h-full bg-transparent focus:outline-none appearance-none"
+                          className="w-14 text-center font-bold text-sm h-10 bg-white focus:outline-none focus:ring-inset focus:ring-2 focus:ring-primary appearance-none m-0"
+                          style={{ MozAppearance: 'textfield' }}
                         />
                         <button 
-                          className="px-3 text-text hover:text-primary transition-colors h-full bg-white border-r border-border"
+                          className="w-12 h-10 flex items-center justify-center bg-gray-100 text-gray-800 font-bold hover:bg-gray-200 hover:text-primary transition-colors border-l border-gray-300 active:bg-gray-300"
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          aria-label="Increase quantity"
                         >
                           <Plus className="w-4 h-4" />
                         </button>

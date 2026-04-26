@@ -22,6 +22,10 @@ export const Booking: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لكي تتم عملية الاستشارة' } }));
+      return;
+    }
     setIsSubmitting(true);
     try {
       await addBooking({

@@ -7,9 +7,11 @@ import {
 } from 'lucide-react';
 import { categories } from '../data/products';
 import { usePromoStore } from '../store/usePromoStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export const Home: React.FC = () => {
   const { promos } = usePromoStore();
+  const { settings } = useSettingsStore();
   const activePromos = promos.filter(p => p.isActive);
 
   return (
@@ -31,12 +33,12 @@ export const Home: React.FC = () => {
               <Activity className="w-4 h-4" />
               <span>الرعاية الطبية المتميزة في اليمن</span>
             </div>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
               شريكك الموثوق في <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-light to-secondary">الرعاية الصحية</span>
             </h1>
             <p className="text-xl text-gray-300 mb-10 leading-relaxed max-w-2xl">
-              نقدم لك في شركة الشفاء جميع الخدمات التي تحتاجها من توزيع الأدوية، تجهيز المستشفيات، وتوفير المستلزمات الطبية بأحدث التكنولوجيا وأعلى معايير الجودة.
+              نقدم لك في {settings.name} جميع الخدمات التي تحتاجها من توزيع الأدوية، تجهيز المستشفيات، وتوفير المستلزمات الطبية بأحدث التكنولوجيا وأعلى معايير الجودة.
             </p>
             <div className="flex flex-wrap gap-4">
               <Link to="/products" className="bg-primary hover:bg-primary-light text-white font-bold py-4 px-8 rounded-xl transition-all text-lg shadow-lg shadow-primary/30 flex items-center gap-2 hover:-translate-y-1">
@@ -170,7 +172,7 @@ export const Home: React.FC = () => {
               />
             </div>
             <div className="w-full lg:w-1/2">
-              <h2 className="text-3xl md:text-4xl font-bold text-text mb-6">لماذا تختار شركة الشفاء؟</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-text mb-6">لماذا تختار {settings.name}؟</h2>
               <p className="text-text-muted text-lg mb-10 leading-relaxed">
                 نحن نلتزم بتقديم أعلى مستويات الخدمة لعملائنا من خلال توفير منتجات أصلية ومضمونة، مع شبكة توزيع فعالة ودعم فني مستمر.
               </p>

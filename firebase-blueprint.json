@@ -106,6 +106,22 @@
         "productTypes": { "type": "array", "items": { "type": "string" } },
         "manufacturers": { "type": "array", "items": { "type": "string" } }
       }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Contact form message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "date": { "type": "string" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["id", "name", "email", "phone", "subject", "message", "date", "read"]
     }
   },
   "firestore": {
@@ -128,6 +144,10 @@
     "config/{configId}": {
       "schema": { "$ref": "#/entities/StoreConfig" },
       "description": "Store configurations (e.g. config/main)"
+    },
+    "messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Contact form messages"
     }
   }
 }

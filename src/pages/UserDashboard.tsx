@@ -3,17 +3,15 @@ import { Navigate } from 'react-router-dom';
 import { Package, Heart, User, Key, LogOut, ChevronLeft, Bell } from 'lucide-react';
 import { useUserStore } from '../store/useUserStore';
 import { useNotificationStore } from '../store/useNotificationStore';
-
-const mockOrders = [
-  { id: 'ORD-84729', date: '2026-04-05', total: 45000, status: 'تم التسليم', items: 12 },
-  { id: 'ORD-92834', date: '2026-04-08', total: 12500, status: 'قيد المعالجة', items: 3 },
-  { id: 'ORD-10293', date: '2026-04-09', total: 85000, status: 'جديد', items: 25 },
-];
+import { useOrderStore } from '../store/useOrderStore';
 
 export const UserDashboard: React.FC = () => {
   const { user, logout, updateUser, markNotificationsAsRead } = useUserStore();
   const { addToast } = useNotificationStore();
+  const { orders } = useOrderStore();
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'profile' | 'notifications'>('orders');
+
+  const userOrders = orders.filter(o => o.userId === user?.id);
 
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
@@ -37,6 +35,10 @@ export const UserDashboard: React.FC = () => {
 
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لتحديث البيانات' } }));
+      return;
+    }
     updateUser(user.id, profileForm);
     addToast('تم تحديث البيانات بنجاح', 'success');
   };
@@ -138,12 +140,20 @@ export const UserDashboard: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {mockOrders.map(order => (
+                        {userOrders.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-12 text-center text-text-muted">
+                              <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                              <p>لا توجد طلبات سابقة لديك.</p>
+                            </td>
+                          </tr>
+                        ) : (
+                          userOrders.map(order => (
                           <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                             <td className="py-4 font-medium" dir="ltr">{order.id}</td>
                             <td className="py-4 text-text-muted">{order.date}</td>
-                            <td className="py-4">{order.items}</td>
-                            <td className="py-4 font-bold text-primary">{order.total.toLocaleString()} ريال</td>
+                            <td className="py-4">{order.items.reduce((acc, item) => acc + item.quantity, 0)}</td>
+                            <td className="py-4 font-bold text-primary">{order.totalYer.toLocaleString()} ريال</td>
                             <td className="py-4">
                               <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
                                 {order.status}
@@ -153,7 +163,7 @@ export const UserDashboard: React.FC = () => {
                               <button className="text-primary hover:underline text-sm font-medium">التفاصيل</button>
                             </td>
                           </tr>
-                        ))}
+                        )))}
                       </tbody>
                     </table>
                   </div>

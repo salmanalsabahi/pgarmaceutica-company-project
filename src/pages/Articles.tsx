@@ -2,46 +2,50 @@ import React from 'react';
 import { Calendar, Clock, User, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const articles = [
-  {
-    id: 1,
-    title: 'أهمية التخزين الجيد للأدوية وتأثيره على الفعالية',
-    excerpt: 'تعرف على المعايير العالمية لتخزين الأدوية وكيف تضمن شركة الشفاء الحفاظ على جودة المنتجات الطبية خلال سلسلة التوريد.',
-    image: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?auto=format&fit=crop&q=80&w=800',
-    date: '9 أبريل 2026',
-    author: 'د. أحمد عبدالله',
-    category: 'جودة وتخزين'
-  },
-  {
-    id: 2,
-    title: 'مستقبل الرعاية الصحية وتوزيع الأدوية في اليمن',
-    excerpt: 'نظرة تحليلية على التحديات والفرص في قطاع الرعاية الصحية اليمني، ودور التكنولوجيا في تحسين سلاسل الإمداد.',
-    image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=800',
-    date: '5 أبريل 2026',
-    author: 'م. محمد علي',
-    category: 'رؤى وتحليلات'
-  },
-  {
-    id: 3,
-    title: 'كيف تختار المورد الطبي المناسب لصيدليتك؟',
-    excerpt: 'دليل شامل لأصحاب الصيدليات حول المعايير الأساسية لاختيار مورد الأدوية الذي يضمن لك الاستمرارية والموثوقية.',
-    image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&q=80&w=800',
-    date: '28 مارس 2026',
-    author: 'د. سارة خالد',
-    category: 'إدارة الصيدليات'
-  },
-  {
-    id: 4,
-    title: 'أحدث التقنيات في تجهيز المستشفيات والمراكز الطبية',
-    excerpt: 'استعراض لأحدث الأجهزة والمعدات الطبية التي توفرها شركة الشفاء لتجهيز المرافق الصحية الحديثة.',
-    image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800',
-    date: '15 مارس 2026',
-    author: 'فريق التجهيزات',
-    category: 'تجهيزات طبية'
-  }
-];
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export const Articles: React.FC = () => {
+  const { settings } = useSettingsStore();
+
+  const articles = [
+    {
+      id: 1,
+      title: 'أهمية التخزين الجيد للأدوية وتأثيره على الفعالية',
+      excerpt: `تعرف على المعايير العالمية لتخزين الأدوية وكيف تضمن ${settings.name} الحفاظ على جودة المنتجات الطبية خلال سلسلة التوريد.`,
+      image: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?auto=format&fit=crop&q=80&w=800',
+      date: '9 أبريل 2026',
+      author: 'د. أحمد عبدالله',
+      category: 'جودة وتخزين'
+    },
+    {
+      id: 2,
+      title: 'مستقبل الرعاية الصحية وتوزيع الأدوية في اليمن',
+      excerpt: 'نظرة تحليلية على التحديات والفرص في قطاع الرعاية الصحية اليمني، ودور التكنولوجيا في تحسين سلاسل الإمداد.',
+      image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=800',
+      date: '5 أبريل 2026',
+      author: 'م. محمد علي',
+      category: 'رؤى وتحليلات'
+    },
+    {
+      id: 3,
+      title: 'كيف تختار المورد الطبي المناسب لصيدليتك؟',
+      excerpt: 'دليل شامل لأصحاب الصيدليات حول المعايير الأساسية لاختيار مورد الأدوية الذي يضمن لك الاستمرارية والموثوقية.',
+      image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&q=80&w=800',
+      date: '28 مارس 2026',
+      author: 'د. سارة خالد',
+      category: 'إدارة الصيدليات'
+    },
+    {
+      id: 4,
+      title: 'أحدث التقنيات في تجهيز المستشفيات والمراكز الطبية',
+      excerpt: `استعراض لأحدث الأجهزة والمعدات الطبية التي توفرها ${settings.name} لتجهيز المرافق الصحية الحديثة.`,
+      image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800',
+      date: '15 مارس 2026',
+      author: 'فريق التجهيزات',
+      category: 'تجهيزات طبية'
+    }
+  ];
+
   return (
     <div className="bg-bg min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-6xl">

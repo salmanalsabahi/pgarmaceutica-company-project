@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Users, Package, ShoppingCart, DollarSign, TrendingUp, Settings, Plus, Edit, Trash2, Check, X, LayoutDashboard, Tag, Image as ImageIcon, FolderTree, Calendar } from 'lucide-react';
+import { Users, Package, ShoppingCart, DollarSign, TrendingUp, Settings, Plus, Edit, Trash2, Check, X, LayoutDashboard, Tag, Image as ImageIcon, FolderTree, Calendar, Mail, Phone, MessageCircle } from 'lucide-react';
 import { useUserStore } from '../store/useUserStore';
 import { useProductStore } from '../store/useProductStore';
 import { useOrderStore } from '../store/useOrderStore';
@@ -8,18 +8,20 @@ import { useNotificationStore } from '../store/useNotificationStore';
 import { usePromoStore, PromoCode } from '../store/usePromoStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useBookingStore } from '../store/useBookingStore';
+import { useMessageStore } from '../store/useMessageStore';
 import { Product } from '../data/products';
 
 export const AdminDashboard: React.FC = () => {
-  const { user, users, updateUser, addUserNotification, updateEmail, updatePassword } = useUserStore();
+  const { user, users, updateUser, addUserNotification, updateEmail, updatePassword, markAllUsersAsRead } = useUserStore();
   const { products, addProduct, updateProduct, deleteProduct, categories, addCategory, deleteCategory, updateCategory, productTypes, addProductType, updateProductType, deleteProductType, manufacturers, addManufacturer, updateManufacturer, deleteManufacturer } = useProductStore();
   const { orders, updateOrderStatus } = useOrderStore();
   const { promos, addPromo, updatePromo, deletePromo } = usePromoStore();
   const { addToast } = useNotificationStore();
   const { settings, updateSettings } = useSettingsStore();
-  const { bookings, updateBookingStatus } = useBookingStore();
+  const { bookings, updateBookingStatus, markAllBookingsAsRead } = useBookingStore();
+  const { messages, unreadCount, markAsRead, markAllMessagesAsRead, deleteMessage } = useMessageStore();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'categories' | 'types' | 'manufacturers' | 'users' | 'promos' | 'settings' | 'bookings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'categories' | 'types' | 'manufacturers' | 'users' | 'promos' | 'settings' | 'bookings' | 'messages'>('overview');
 
   // Product Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -83,6 +85,32 @@ export const AdminDashboard: React.FC = () => {
   const [adminEmail, setAdminEmail] = useState(user?.email || '');
   const [adminPassword, setAdminPassword] = useState('');
   const [isUpdatingAccount, setIsUpdatingAccount] = useState(false);
+
+  // Sync settingsForm when settings change
+  React.useEffect(() => {
+    setSettingsForm(settings);
+  }, [settings]);
+
+  // Handle auto-clearing notifications when tabs are opened
+  React.useEffect(() => {
+    if (activeTab === 'bookings') {
+      markAllBookingsAsRead();
+    }
+  }, [activeTab, bookings, markAllBookingsAsRead]);
+
+  // Handle auto-clearing messages when tab is opened
+  React.useEffect(() => {
+    if (activeTab === 'messages') {
+      markAllMessagesAsRead();
+    }
+  }, [activeTab, messages, markAllMessagesAsRead]);
+
+  // Handle auto-clearing users when tab is opened
+  React.useEffect(() => {
+    if (activeTab === 'users') {
+      markAllUsersAsRead();
+    }
+  }, [activeTab, users, markAllUsersAsRead]);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -381,15 +409,66 @@ export const AdminDashboard: React.FC = () => {
     });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.7): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (img: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        addToast('الملف كبير جداً. الحد الأقصى هو 10 ميجا بايت.', 'error');
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProductForm({ ...productForm, image: reader.result as string });
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        // Compress if likely to exceed Firestore 1MB limit (approx 750KB base64)
+        if (base64.length > 700000) {
+          const compressed = await compressImage(base64);
+          callback(compressed);
+        } else {
+          callback(base64);
+        }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const sendWhatsAppMessage = (phone: string, message: string) => {
+    // Clean phone number (remove spaces, plus, etc) and ensure it starts with country code or is just the number
+    const cleanPhone = phone.replace(/\D/g, '');
+    // If it's a Yemen number without code, add 967
+    const finalPhone = cleanPhone.startsWith('967') ? cleanPhone : `967${cleanPhone}`;
+    const url = `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank', 'noreferrer');
   };
 
   const renderOverview = () => (
@@ -437,6 +516,24 @@ export const AdminDashboard: React.FC = () => {
           <div>
             <p className="text-sm text-text-muted font-medium mb-1">العملاء المسجلين</p>
             <h3 className="text-2xl font-bold">{totalCustomers}</h3>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl border border-border shadow-sm flex items-center gap-4">
+          <div className="w-14 h-14 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+            <Mail className="w-8 h-8" />
+          </div>
+          <div>
+            <p className="text-sm text-text-muted font-medium mb-1">رسائل جديدة</p>
+            <h3 className="text-2xl font-bold">{unreadCount}</h3>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl border border-border shadow-sm flex items-center gap-4 cursor-pointer hover:border-primary transition-all" onClick={() => setActiveTab('promos')}>
+          <div className="w-14 h-14 bg-pink-100 text-pink-600 rounded-lg flex items-center justify-center shrink-0">
+            <Tag className="w-8 h-8" />
+          </div>
+          <div>
+            <p className="text-sm text-text-muted font-medium mb-1">أكواد الخصم</p>
+            <h3 className="text-2xl font-bold">{promos.filter(p => p.isActive).length} <span className="text-sm font-normal">نشط</span></h3>
           </div>
         </div>
       </div>
@@ -541,6 +638,14 @@ export const AdminDashboard: React.FC = () => {
                           updateOrderStatus(order.id, newStatus);
                           addUserNotification(order.userId, `تم تحديث حالة طلبك رقم ${order.id} إلى: ${newStatus}`);
                           addToast(`تم تحديث حالة الطلب ${order.id} وإرسال إشعار للعميل`, 'success');
+                          
+                          // Optional: Prompt to send WhatsApp
+                          const waMessage = `مرحباً، تم تحديث حالة طلبك رقم ${order.id} في ${settings.name} إلى: ${newStatus}`;
+                          if (order.shippingInfo?.phone) {
+                            if (window.confirm('هل تريد إرسال رسالة واتساب للعميل بهذا التحديث؟')) {
+                              sendWhatsAppMessage(order.shippingInfo.phone, waMessage);
+                            }
+                          }
                         }}
                         className={`px-3 py-1.5 rounded-lg text-sm font-bold border-2 outline-none cursor-pointer ${
                           order.status === 'جديد' ? 'bg-primary/10 text-primary border-primary/20' :
@@ -556,6 +661,19 @@ export const AdminDashboard: React.FC = () => {
                         <option value="تم التسليم">تم التسليم</option>
                         <option value="مرفوض">مرفوض</option>
                       </select>
+                      {order.shippingInfo?.phone && (
+                        <button 
+                          onClick={() => {
+                            const msg = `مرحباً ${order.shippingInfo.name}، بخصوص طلبك رقم ${order.id} من ${settings.name}...`;
+                            sendWhatsAppMessage(order.shippingInfo.phone, msg);
+                          }}
+                          className="mr-2 p-1.5 text-success hover:bg-success/10 rounded-lg transition-colors inline-flex items-center gap-1 text-xs font-bold"
+                          title="إرسال واتساب"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          واتساب
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -847,6 +965,86 @@ export const AdminDashboard: React.FC = () => {
     </div>
   );
 
+  const renderMessages = () => (
+    <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+      <div className="p-6 border-b border-border flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-text">رسائل تواصل معنا</h2>
+        {unreadCount > 0 && (
+          <span className="bg-danger text-white text-xs font-bold px-2 py-1 rounded-full">
+            {unreadCount} رسالة جديدة
+          </span>
+        )}
+      </div>
+      <div className="divide-y divide-border">
+        {messages.length === 0 ? (
+          <div className="p-12 text-center text-text-muted">لا توجد رسائل حالياً</div>
+        ) : (
+          messages.map((message) => (
+            <div key={message.id} className={`p-6 hover:bg-gray-50 transition-colors ${!message.read ? 'bg-primary/5' : ''}`}>
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${!message.read ? 'bg-primary' : 'bg-gray-400'}`}>
+                    {message.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">{message.name}</h3>
+                    <p className="text-sm text-text-muted">{new Date(message.date).toLocaleString('ar-YE')}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!message.read && (
+                    <button 
+                      onClick={() => markAsRead(message.id)}
+                      className="text-xs font-bold bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary-light transition-colors"
+                    >
+                      تحديد كمقروء
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => {
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'حذف الرسالة',
+                        message: `هل أنت متأكد من حذف رسالة من "${message.name}"؟`,
+                        onConfirm: async () => {
+                          await deleteMessage(message.id);
+                          addToast('تم حذف الرسالة بنجاح', 'success');
+                          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                        }
+                      });
+                    }}
+                    className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="mr-13">
+                <div className="mb-2">
+                  <span className="font-bold text-sm ml-2">الموضوع:</span>
+                  <span className="text-text font-bold">{message.subject}</span>
+                </div>
+                <p className="text-text-muted bg-gray-50 p-4 rounded-xl border border-border whitespace-pre-wrap">
+                  {message.message}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                  <div className="flex items-center gap-1 text-text-muted">
+                    <Mail className="w-4 h-4" />
+                    <span>{message.email}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-text-muted">
+                    <Phone className="w-4 h-4" />
+                    <span dir="ltr">{message.phone}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   const renderPromos = () => (
     <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
       <div className="p-6 border-b border-border flex justify-between items-center">
@@ -872,11 +1070,16 @@ export const AdminDashboard: React.FC = () => {
                 <td className="p-4 font-bold" dir="ltr">{promo.code}</td>
                 <td className="p-4 font-bold text-primary">{promo.discountPercentage}%</td>
                 <td className="p-4">
-                  {promo.isActive ? (
-                    <span className="bg-success/10 text-success text-xs font-bold px-2 py-1 rounded">نشط</span>
-                  ) : (
-                    <span className="bg-danger/10 text-danger text-xs font-bold px-2 py-1 rounded">غير نشط</span>
-                  )}
+                  <button 
+                    onClick={() => updatePromo(promo.id, { isActive: !promo.isActive })}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                      promo.isActive 
+                        ? 'bg-success/10 text-success hover:bg-success/20' 
+                        : 'bg-danger/10 text-danger hover:bg-danger/20'
+                    }`}
+                  >
+                    {promo.isActive ? 'نشط' : 'غير نشط'}
+                  </button>
                 </td>
                 <td className="p-4 flex items-center justify-center gap-2">
                   <button onClick={() => openEditPromoModal(promo)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
@@ -904,9 +1107,27 @@ export const AdminDashboard: React.FC = () => {
       <div className="bg-white rounded-xl border border-border shadow-sm p-6">
         <h2 className="text-2xl font-bold text-text mb-6">معلومات الشركة والتواصل</h2>
         <form onSubmit={handleSettingsSave} className="max-w-2xl space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-text mb-2">اسم الشركة</label>
-            <input type="text" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" />
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            <div className="shrink-0">
+              <label className="block text-sm font-medium text-text mb-2">شعار الشركة (Logo)</label>
+              <div className="relative group">
+                <div className="w-32 h-32 rounded-xl border-2 border-dashed border-border bg-gray-50 flex items-center justify-center overflow-hidden">
+                  {settingsForm.logo ? (
+                    <img src={settingsForm.logo} alt="Logo Preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                  ) : (
+                    <ImageIcon className="w-8 h-8 text-text-muted" />
+                  )}
+                </div>
+                <label className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-xl">
+                  <span className="text-xs font-bold">تغيير</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (img) => setSettingsForm({ ...settingsForm, logo: img }))} />
+                </label>
+              </div>
+            </div>
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-text mb-2">اسم الشركة</label>
+              <input type="text" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" />
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -917,9 +1138,17 @@ export const AdminDashboard: React.FC = () => {
               <label className="block text-sm font-medium text-text mb-2">رقم الواتساب</label>
               <input type="text" value={settingsForm.whatsapp || ''} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} dir="ltr" className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary text-right" />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-text mb-2">البريد الإلكتروني</label>
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">رابط الخريطة المضمن (Embed Map URL)</label>
+              <input type="text" value={settingsForm.mapLink || ''} onChange={e => setSettingsForm({...settingsForm, mapLink: e.target.value})} dir="ltr" className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary text-right" placeholder="https://www.google.com/maps/embed?..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">البريد الإلكتروني 1</label>
               <input type="email" value={settingsForm.email} onChange={e => setSettingsForm({...settingsForm, email: e.target.value})} dir="ltr" className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary text-right" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">البريد الإلكتروني 2 (اختياري)</label>
+              <input type="email" value={settingsForm.email2 || ''} onChange={e => setSettingsForm({...settingsForm, email2: e.target.value})} dir="ltr" className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary text-right" />
             </div>
           </div>
           <div>
@@ -1060,9 +1289,35 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </div>
 
+          <h3 className="text-lg font-bold text-text mt-8 mb-4 border-t border-border pt-6">إعدادات النظام</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-xl border border-border">
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">أوقات الدوام</label>
+              <input 
+                type="text" 
+                value={settingsForm.workingHours || ''} 
+                onChange={e => setSettingsForm({...settingsForm, workingHours: e.target.value})} 
+                placeholder="مثال: السبت - الخميس: 8ص - 5م"
+                className="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary" 
+              />
+            </div>
+            <div className="flex items-center gap-4 pt-0 md:pt-8">
+              <label className="relative inline-flex items-center cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer" 
+                  checked={settingsForm.isMaintenanceMode || false} 
+                  onChange={e => setSettingsForm({...settingsForm, isMaintenanceMode: e.target.checked})} 
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary transition-colors"></div>
+                <span className="ms-3 text-sm font-bold text-text group-hover:text-primary transition-colors">تفعيل وضع الصيانة (إغلاق الموقع للعملاء)</span>
+              </label>
+            </div>
+          </div>
+
           <div className="pt-6 border-t border-border">
-            <button type="submit" className="bg-primary hover:bg-primary-light text-white font-bold py-3 px-8 rounded-lg transition-colors">
-              حفظ الإعدادات
+            <button type="submit" className="bg-primary hover:bg-primary-light text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg hover:-translate-y-0.5">
+              حفظ جميع الإعدادات
             </button>
           </div>
         </form>
@@ -1133,9 +1388,16 @@ export const AdminDashboard: React.FC = () => {
               <LayoutDashboard className="w-5 h-5" />
               <span className="font-bold">نظرة عامة</span>
             </button>
-            <button onClick={() => setActiveTab('orders')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'orders' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
-              <ShoppingCart className="w-5 h-5" />
-              <span className="font-bold">الطلبات</span>
+            <button onClick={() => { setActiveTab('orders') }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'orders' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-3">
+                <ShoppingCart className="w-5 h-5" />
+                <span className="font-bold">الطلبات</span>
+              </div>
+              {orders.filter(o => o.status === 'جديد').length > 0 && (
+                <span className="bg-danger text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {orders.filter(o => o.status === 'جديد').length}
+                </span>
+              )}
             </button>
             <button onClick={() => setActiveTab('products')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'products' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <Package className="w-5 h-5" />
@@ -1153,13 +1415,38 @@ export const AdminDashboard: React.FC = () => {
               <ImageIcon className="w-5 h-5" />
               <span className="font-bold">الشركات المصنعة</span>
             </button>
-            <button onClick={() => setActiveTab('users')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
-              <Users className="w-5 h-5" />
-              <span className="font-bold">العملاء</span>
+            <button onClick={() => { setActiveTab('users'); markAllUsersAsRead(); }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5" />
+                <span className="font-bold">العملاء</span>
+              </div>
+              {users.filter(u => u.isNew).length > 0 && (
+                <span className="bg-danger text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {users.filter(u => u.isNew).length}
+                </span>
+              )}
             </button>
-            <button onClick={() => setActiveTab('bookings')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
-              <Calendar className="w-5 h-5" />
-              <span className="font-bold">الاستشارات</span>
+            <button onClick={() => { setActiveTab('bookings'); markAllBookingsAsRead(); }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5" />
+                <span className="font-bold">الاستشارات</span>
+              </div>
+              {bookings.filter(b => !b.isRead).length > 0 && (
+                <span className="bg-danger text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {bookings.filter(b => !b.isRead).length}
+                </span>
+              )}
+            </button>
+            <button onClick={() => { setActiveTab('messages'); }} className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-colors ${activeTab === 'messages' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5" />
+                <span className="font-bold">الرسائل</span>
+              </div>
+              {unreadCount > 0 && (
+                <span className="bg-danger text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
             </button>
             <button onClick={() => setActiveTab('promos')} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'promos' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-text'}`}>
               <Tag className="w-5 h-5" />
@@ -1182,6 +1469,7 @@ export const AdminDashboard: React.FC = () => {
           {activeTab === 'manufacturers' && renderManufacturers()}
           {activeTab === 'users' && renderUsers()}
           {activeTab === 'bookings' && renderBookings()}
+          {activeTab === 'messages' && renderMessages()}
           {activeTab === 'promos' && renderPromos()}
           {activeTab === 'settings' && renderSettings()}
         </div>
@@ -1272,10 +1560,10 @@ export const AdminDashboard: React.FC = () => {
                     <label className="block text-sm font-bold text-text mb-2">صورة المنتج</label>
                     <div className="space-y-4">
                       <div className="flex items-center gap-4">
-                        <label className="cursor-pointer bg-primary/5 hover:bg-primary/10 text-primary font-bold py-2.5 px-4 rounded-xl border border-primary/20 transition-all flex items-center gap-2 flex-1 justify-center">
-                          <ImageIcon className="w-5 h-5" />
-                          اختر صورة من الجهاز
-                          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                        <label className="cursor-pointer bg-primary/5 hover:bg-primary/10 text-primary font-bold py-2.5 px-4 rounded-xl border border-primary/20 transition-all flex items-center gap-2 flex-1 justify-center text-center">
+                          <ImageIcon className="w-5 h-5 shrink-0" />
+                          <span>اختر صورة (حتى 10MB)</span>
+                          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, (img) => setProductForm({ ...productForm, image: img }))} className="hidden" />
                         </label>
                         {productForm.image && (
                           <button 

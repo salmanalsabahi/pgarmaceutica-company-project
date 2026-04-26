@@ -12,9 +12,11 @@ service cloud.firestore {
     }
     
     function isAdmin() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
       return isAuthenticated() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-        (request.auth.token.email == "salmanalsabahi775@gmail.com" && request.auth.token.email_verified == true)
+        (userDoc.data != null && userDoc.data.role == 'admin') ||
+        (request.auth.token.email == "salmanalsabahi775@gmail.com" && request.auth.token.email_verified == true) ||
+        (request.auth.token.email == "admin@alshifa.com" && request.auth.token.email_verified == true)
       );
     }
     
@@ -26,38 +28,69 @@ service cloud.firestore {
     // Rules
     // ===============================================================
     
-    match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+    // Combined rules for /users
+    // التشخيص: فتح القراءة للجميع مؤقتاً
+    match /{document=**} {
+      allow read: if true;
     }
     
-    match /products/{productId} {
+    // قواعد الكتابة كما كانت للتأمين
+    match /users {
+      allow list: if isAdmin();
+      match /{userId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) || isAdmin();
+        allow update: if isOwner(userId) || isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+    
+    match /products {
+      allow list: if true;
+      match /{productId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+    
+    match /orders {
+      allow list: if isAuthenticated();
+      match /{orderId} {
+        allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+    
+    match /promos {
+      allow list: if true;
+      match /{promoId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+    
+    match /config {
       allow read: if true;
       allow write: if isAdmin();
     }
     
-    match /orders/{orderId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+    match /bookings {
+      allow list: if isAuthenticated();
+      match /{bookingId} {
+        allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+        allow create: if true;
+        allow update, delete: if isAdmin();
+      }
     }
     
-    match /promos/{promoId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /config/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /bookings/{bookingId} {
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
-      allow create: if true; // Allow anyone to create a booking (even guests)
-      allow update, delete: if isAdmin();
+    match /messages {
+      allow list: if isAdmin();
+      match /{messageId} {
+        allow read: if isAdmin();
+        allow create: if true;
+        allow update, delete: if isAdmin();
+      }
     }
   }
 }

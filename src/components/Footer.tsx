@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Phone, Mail, Globe } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, Facebook, Twitter, Instagram, Linkedin, Youtube, MessageCircle } from 'lucide-react';
 import { useSettingsStore } from '../store/useSettingsStore';
 
 export const Footer: React.FC = () => {
@@ -13,22 +13,26 @@ export const Footer: React.FC = () => {
           {/* Company Info */}
           <div>
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                ش
-              </div>
+              {settings.logo ? (
+                <img src={settings.logo} alt={settings.name} className="w-10 h-10 object-contain rounded-lg bg-white p-1" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                  {settings.name.charAt(0)}
+                </div>
+              )}
               <div>
                 <h2 className="text-white font-bold text-xl leading-tight">{settings.name}</h2>
                 <p className="text-accent text-xs">لتوزيع الأدوية</p>
               </div>
             </div>
             <p className="text-gray-400 mb-6 leading-relaxed">
-              شريكك الموثوق في القطاع الصحي. نوفر أفضل الأدوية والمستلزمات الطبية لجميع الصيدليات والمستشفيات في كافة محافظات الجمهورية اليمنية.
+              شريككم الموثوق في القطاع الصحي. نوفر أفضل الأدوية والمستلزمات الطبية لجميع الصيدليات والمستشفيات في كافة محافظات الجمهورية اليمنية.
             </p>
             <div className="flex flex-wrap gap-2">
               {settings.socialLinks?.map(link => (
                 link.url && link.url !== '#' && (
                   <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors text-sm gap-2">
-                    <Globe className="w-4 h-4" />
+                    <Globe className="w-4 h-4 text-accent" />
                     {link.platform}
                   </a>
                 )

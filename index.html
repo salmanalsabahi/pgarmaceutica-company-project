@@ -2,7 +2,13 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0088cc" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
     <title>شركة الشفاء لتوزيع الأدوية</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,10 +66,11 @@
       .n8n-chat {
         direction: rtl;
       }
-
-      /* تحسين النص */
-      .n8n-chat * {
-        font-family: 'Cairo', sans-serif !important;
+      
+      /* إجبار البوت على أن يكون ثابتاً تماماً في أسفل الشاشة */
+      .chat-wrapper-fix {
+        padding-bottom: 0px !important;
+        margin-bottom: 0px !important;
       }
     </style>
   </head>
@@ -96,6 +103,62 @@
           store: 'Soltier Yemen'
         }
       });
+
+      // 강제 스크립트 (Forced Script to handle n8n chat widget styling which ignores standard CSS)
+      const fixChatPosition = () => {
+        const isMobile = window.innerWidth <= 768;
+        const chatRoots = [
+          ...document.querySelectorAll('.n8n-chat-container, .n8n-chat-toggle, [class*="n8n-"]'),
+          ...document.querySelectorAll('div[data-v-app]') // sometimes Vue apps use this
+        ];
+        
+        chatRoots.forEach(el => {
+          if (el.style.position === 'fixed' || getComputedStyle(el).position === 'fixed' || el.classList.contains('chat-wrapper-fix')) {
+            el.classList.add('chat-wrapper-fix');
+            // Force override it
+            if(isMobile) {
+              el.style.setProperty('bottom', '74px', 'important'); /* Lowered slightly */
+              el.style.setProperty('right', '12px', 'important');
+              el.style.setProperty('transform', 'scale(0.70)', 'important'); /* Made icon smaller */
+              el.style.setProperty('transform-origin', 'bottom right', 'important');
+            } else {
+              el.style.setProperty('bottom', '24px', 'important');
+              el.style.setProperty('right', '24px', 'important');
+              el.style.setProperty('transform', 'scale(1)', 'important');
+            }
+          }
+        });
+      };
+
+      // Watch for the chat widget to be added to the DOM and apply styles
+      const observer = new MutationObserver(() => {
+        fixChatPosition();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      window.addEventListener('resize', fixChatPosition);
+
+      // Close chat when clicking outside
+      const handleChatClickOutside = (e) => {
+        const chatWindow = document.querySelector('.n8n-chat-window, .n8n-chat-container');
+        const chatToggle = document.querySelector('.n8n-chat-toggle');
+        
+        if (chatWindow && getComputedStyle(chatWindow).display !== 'none' && chatWindow.style.opacity !== '0') {
+          const path = e.composedPath ? e.composedPath() : [];
+          const clickedInsideChat = path.includes(chatWindow) || chatWindow.contains(e.target);
+          const clickedOnToggle = chatToggle && (path.includes(chatToggle) || chatToggle.contains(e.target));
+          
+          if (!clickedInsideChat && !clickedOnToggle) {
+             const closeBtn = document.querySelector('.n8n-chat-header button');
+             if (closeBtn) {
+               closeBtn.click();
+             } else if (chatToggle) {
+               chatToggle.click();
+             }
+          }
+        }
+      };
+      document.addEventListener('mousedown', handleChatClickOutside);
+      document.addEventListener('touchstart', handleChatClickOutside, { passive: true });
     </script>
   </body>
 </html>

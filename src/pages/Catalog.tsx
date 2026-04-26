@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Filter, ChevronDown } from 'lucide-react';
+import { Filter, ChevronDown, Search, X } from 'lucide-react';
 import { useProductStore } from '../store/useProductStore';
 import { ProductCard } from '../components/ProductCard';
 
@@ -20,6 +20,9 @@ export const Catalog: React.FC = () => {
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>('name');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSelectedCategory(searchParams.get('category') || '');
@@ -27,6 +30,20 @@ export const Catalog: React.FC = () => {
     setSelectedBrand(searchParams.get('brand') || '');
     setSearchQuery(searchParams.get('search') || '');
   }, [searchParams]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -97,9 +114,47 @@ export const Catalog: React.FC = () => {
     <div className="bg-bg min-h-screen py-8">
       <div className="container mx-auto px-4">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-text mb-2">المنتجات</h1>
-          <p className="text-text-muted">تصفح جميع الأدوية والمستلزمات الطبية المتاحة</p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 relative">
+          <div>
+            <h1 className="text-3xl font-bold text-text mb-2">المنتجات</h1>
+            <p className="text-text-muted">تصفح جميع الأدوية والمستلزمات الطبية المتاحة</p>
+          </div>
+          
+          <div ref={searchRef} className="relative flex items-center justify-end h-10 w-full md:w-auto mt-4 md:mt-0">
+            {isSearchOpen ? (
+              <div className="animate-fade-in origin-left flex items-center bg-white border border-border rounded-lg shadow-sm overflow-hidden w-full max-w-sm text-sm">
+                <input
+                  type="text"
+                  placeholder="ابحث عن منتج..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    updateParams({ search: e.target.value });
+                  }}
+                  className="w-full px-4 py-2 focus:outline-none"
+                  autoFocus
+                />
+                <button 
+                  onClick={() => {
+                    setSearchQuery('');
+                    updateParams({ search: '' });
+                    setIsSearchOpen(false);
+                  }}
+                  className="p-2 text-text-muted hover:text-danger bg-gray-50 border-r border-border transition-colors h-full"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setIsSearchOpen(true)}
+                className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
+                aria-label="بحث"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">

@@ -56,7 +56,7 @@ const compressImage = (file: File): Promise<string> => {
 export const Checkout: React.FC = () => {
   const { items, getFinalTotalYer, getFinalTotalUsd, clearCart, promoCode, discount, applyPromoCode, removePromoCode, getTotalYer } = useCartStore();
   const { addOrder } = useOrderStore();
-  const { user } = useUserStore();
+  const { user, users, addUserNotification } = useUserStore();
   const { addToast } = useNotificationStore();
   const { settings } = useSettingsStore();
   const navigate = useNavigate();
@@ -86,6 +86,10 @@ export const Checkout: React.FC = () => {
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لكي تتم العملية' } }));
+      return;
+    }
     if (step < 3) setStep((s) => (s + 1) as 1 | 2 | 3);
   };
 
@@ -101,6 +105,10 @@ export const Checkout: React.FC = () => {
   };
 
   const handleComplete = async () => {
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لكي تتم العملية' } }));
+      return;
+    }
     if (!user) {
       addToast('يجب تسجيل الدخول لإتمام الطلب', 'error');
       navigate('/auth');
@@ -147,6 +155,14 @@ export const Checkout: React.FC = () => {
       if (discount) newOrder.discountPercentage = discount * 100;
 
       await addOrder(newOrder as Order);
+      
+      // Notify Admins
+      const admins = users.filter(u => u.role === 'admin' || u.email === 'salmanalsabahi775@gmail.com');
+      const notificationMsg = `طلب جديد برقم ${newOrderId} من ${shippingInfo.name}`;
+      for (const admin of admins) {
+        await addUserNotification(admin.id, notificationMsg);
+      }
+
       clearCart();
       addToast('تم استلام طلبك بنجاح!', 'success');
       setStep(3);

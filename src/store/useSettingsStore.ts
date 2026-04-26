@@ -18,10 +18,15 @@ export interface PaymentAccount {
 
 export interface CompanySettings {
   name: string;
+  logo?: string;
   phone: string;
   email: string;
+  email2?: string;
   address: string;
   whatsapp: string;
+  workingHours: string;
+  isMaintenanceMode: boolean;
+  mapLink: string;
   socialLinks: SocialLink[];
   paymentAccounts: PaymentAccount[];
 }
@@ -33,21 +38,18 @@ interface SettingsState {
 }
 
 const defaultSettings: CompanySettings = {
-  name: 'شركة الشفاء لتوزيع الأدوية',
-  phone: '+967 1 234 567',
-  email: 'info@alshifa-pharma.com',
-  address: 'المركز الرئيسي: شارع الزبيري، صنعاء، الجمهورية اليمنية',
-  whatsapp: '+967700000000',
-  socialLinks: [
-    { id: '1', platform: 'Facebook', url: '#' },
-    { id: '2', platform: 'Twitter', url: '#' },
-    { id: '3', platform: 'Instagram', url: '#' },
-    { id: '4', platform: 'LinkedIn', url: '#' }
-  ],
-  paymentAccounts: [
-    { id: '1', type: 'bank', providerName: 'بنك الكريمي', accountName: 'شركة الشفاء', accountNumber: '123456789' },
-    { id: '2', type: 'wallet', providerName: 'جوالي', accountName: 'شركة الشفاء', accountNumber: '777000000' }
-  ]
+  name: 'جاري التحميل...',
+  logo: '',
+  phone: '',
+  email: '',
+  email2: '',
+  address: '',
+  whatsapp: '',
+  workingHours: '',
+  isMaintenanceMode: false,
+  mapLink: '',
+  socialLinks: [],
+  paymentAccounts: []
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -59,8 +61,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       if (docSnap.exists()) {
         set({ settings: docSnap.data() as CompanySettings });
       } else {
-        // Initialize with default settings if not exists
-        setDoc(settingsRef, defaultSettings);
+        // We do not overwrite with defaults automatically to prevent data loss
+        // if offline. It just stays empty until admin saves.
       }
     });
   },

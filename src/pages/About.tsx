@@ -1,7 +1,10 @@
 import React from 'react';
 import { Building2, Users, Target, ShieldCheck, Award, Clock } from 'lucide-react';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export const About: React.FC = () => {
+  const { settings } = useSettingsStore();
+  
   return (
     <div className="bg-bg min-h-screen">
       {/* Hero Section */}
@@ -9,7 +12,7 @@ export const About: React.FC = () => {
         <div className="container mx-auto px-4 text-center max-w-3xl">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">من نحن</h1>
           <p className="text-lg text-primary-light/90 leading-relaxed">
-            شركة الشفاء لتوزيع الأدوية والمستلزمات الطبية، شريكك الموثوق في الرعاية الصحية في الجمهورية اليمنية.
+            {settings.name} لتوزيع الأدوية والمستلزمات الطبية، شريكك الموثوق في الرعاية الصحية في الجمهورية اليمنية.
           </p>
         </div>
       </div>
@@ -20,7 +23,7 @@ export const About: React.FC = () => {
           <div>
             <h2 className="text-3xl font-bold text-text mb-6">قصتنا</h2>
             <p className="text-text-muted leading-relaxed mb-4">
-              تأسست شركة الشفاء بهدف سد الفجوة في سوق توزيع الأدوية في اليمن، وتوفير الأدوية والمستلزمات الطبية عالية الجودة بأسعار تنافسية وموثوقية عالية.
+              تأسست {settings.name} بهدف سد الفجوة في سوق توزيع الأدوية في اليمن، وتوفير الأدوية والمستلزمات الطبية عالية الجودة بأسعار تنافسية وموثوقية عالية.
             </p>
             <p className="text-text-muted leading-relaxed">
               منذ انطلاقتنا، عملنا بجد لبناء شبكة توزيع قوية تغطي كافة المحافظات اليمنية، معتمدين على أحدث التقنيات في إدارة المخازن وسلاسل الإمداد لضمان وصول الأدوية في أفضل الظروف وبأسرع وقت ممكن.

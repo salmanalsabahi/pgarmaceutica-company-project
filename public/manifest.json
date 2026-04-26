@@ -1,0 +1,25 @@
+{
+  "short_name": "الشفاء",
+  "name": "شركة الشفاء لتوزيع الأدوية",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "144x144"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "theme_color": "#0088cc",
+  "description": "شريككم الموثوق في القطاع الصحي اليمني.",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar"
+}

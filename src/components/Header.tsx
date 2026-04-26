@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Search, Menu, X, LogOut, LayoutDashboard, Clock, Phone, Mail, ChevronDown, Globe, CalendarCheck, Tag, Bell } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ShoppingCart, User, Search, Menu, X, LogOut, LayoutDashboard, Clock, Phone, Mail, ChevronDown, Globe, CalendarCheck, Tag, Bell, Facebook, Twitter, Instagram, Linkedin, Youtube, MessageCircle } from 'lucide-react';
 import { useCartStore } from '../store/useCartStore';
 import { useUserStore } from '../store/useUserStore';
 import { useNotificationStore } from '../store/useNotificationStore';
@@ -22,24 +22,49 @@ export const Header: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   
   const navigate = useNavigate();
+  const location = useLocation();
   const searchRef = useRef<HTMLFormElement>(null);
   const mobileSearchRef = useRef<HTMLFormElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
 
   const cartItemCount = items.reduce((acc, item) => acc + item.quantity, 0);
   const activePromos = promos.filter(p => p.isActive);
   const unreadNotificationsCount = user?.notifications?.filter(n => !n.read).length || 0;
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
       if (mobileSearchRef.current && !mobileSearchRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const searchSuggestions = searchQuery.trim() === '' ? [] : products.filter(p => 
@@ -64,7 +89,7 @@ export const Header: React.FC = () => {
   };
 
   const handleLanguageSwitch = () => {
-    addToast('النسخة الإنجليزية قيد التطوير حالياً', 'info');
+    addToast('النسخة الإنجليزية قيد التطوير من قبل المهندس سلمان الصباحي', 'info');
   };
 
   return (
@@ -72,10 +97,10 @@ export const Header: React.FC = () => {
       {/* Promo Banner */}
       {activePromos.length > 0 && (
         <div className="bg-primary-light text-white py-2 text-sm text-center font-bold relative overflow-hidden">
-          <div className="container mx-auto px-4 flex items-center justify-center gap-2 animate-pulse">
-            <Tag className="w-4 h-4" />
+          <div className="container mx-auto px-4 flex flex-wrap items-center justify-center gap-1 sm:gap-2 animate-pulse text-xs sm:text-sm">
+            <Tag className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
             <span>عروض خاصة! استخدم كود الخصم:</span>
-            <span className="bg-white text-primary-light px-2 py-0.5 rounded text-xs mx-1" dir="ltr">
+            <span className="bg-white text-primary-light px-2 py-0.5 rounded text-xs mx-1 shrink-0" dir="ltr">
               {activePromos[0].code}
             </span>
             <span>للحصول على خصم {activePromos[0].discountPercentage}%</span>
@@ -89,7 +114,7 @@ export const Header: React.FC = () => {
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary-light" /> 
-              العمل: السبت - الخميس 8 ص - 5 م
+              {settings.workingHours || 'السبت - الخميس 8 ص - 5 م'}
             </span>
             <span className="flex items-center gap-2" dir="ltr">
               <Phone className="w-4 h-4 text-primary-light" /> 
@@ -103,8 +128,9 @@ export const Header: React.FC = () => {
           <div className="flex items-center gap-4">
             {settings.socialLinks?.map(link => (
               link.url && link.url !== '#' && (
-                <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="hover:text-primary-light transition-colors">
-                  {link.platform}
+                <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-primary-light transition-colors">
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{link.platform}</span>
                 </a>
               )
             ))}
@@ -114,15 +140,19 @@ export const Header: React.FC = () => {
 
       {/* Main Header */}
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between gap-4 md:gap-8">
+        <div className="flex items-center justify-between gap-2 md:gap-8">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">
-              ش
-            </div>
-            <div>
-              <h1 className="text-primary font-bold text-xl leading-tight">شركة الشفاء</h1>
-              <p className="text-accent text-xs">لتوزيع الأدوية</p>
+          <Link to="/" className="flex items-center gap-2 shrink-0 max-w-[60%] sm:max-w-none">
+            {settings.logo ? (
+              <img src={settings.logo} alt={settings.name} className="w-10 h-10 object-contain rounded-lg hidden sm:block" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg sm:text-xl shrink-0">
+                {settings.name.charAt(0)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-primary font-bold text-sm sm:text-lg md:text-xl leading-tight truncate">{settings.name}</h1>
+              <p className="text-accent text-[10px] sm:text-xs">لتوزيع الأدوية</p>
             </div>
           </Link>
 
@@ -205,7 +235,7 @@ export const Header: React.FC = () => {
             </Link>
 
             {user && (
-              <div className="relative">
+              <div className="relative" ref={notifRef}>
                 <button 
                   onClick={() => {
                     setIsNotificationsOpen(!isNotificationsOpen);
@@ -298,24 +328,37 @@ export const Header: React.FC = () => {
       {/* Navigation */}
       <nav className="hidden md:block border-t border-border bg-white">
         <div className="container mx-auto px-4">
-          <ul className="flex items-center gap-8 py-3">
+          <ul className="flex items-center gap-8 py-0">
             <li>
-              <Link to="/" className="text-text hover:text-primary font-bold transition-colors">الرئيسية</Link>
+              <Link to="/" className={`relative py-4 block transition-colors font-bold ${isActive('/') ? 'text-primary' : 'text-text hover:text-primary'}`}>
+                الرئيسية
+                {isActive('/') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
+              </Link>
             </li>
             <li>
-              <Link to="/products" className="text-text hover:text-primary font-bold transition-colors">المنتجات</Link>
+              <Link to="/products" className={`relative py-4 block transition-colors font-bold ${isActive('/products') ? 'text-primary' : 'text-text hover:text-primary'}`}>
+                المنتجات
+                {isActive('/products') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
+              </Link>
             </li>
             <li>
-              <Link to="/types" className="text-text hover:text-primary font-bold transition-colors">أنواع المنتجات</Link>
+              <Link to="/types" className={`relative py-4 block transition-colors font-bold ${isActive('/types') ? 'text-primary' : 'text-text hover:text-primary'}`}>
+                أنواع المنتجات
+                {isActive('/types') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
+              </Link>
             </li>
             <li>
-              <Link to="/manufacturers" className="text-text hover:text-primary font-bold transition-colors">الشركات المصنعة</Link>
+              <Link to="/manufacturers" className={`relative py-4 block transition-colors font-bold ${isActive('/manufacturers') ? 'text-primary' : 'text-text hover:text-primary'}`}>
+                الشركات المصنعة
+                {isActive('/manufacturers') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
+              </Link>
             </li>
             
             {/* Services Dropdown */}
             <li className="relative group">
-              <button className="flex items-center gap-1 text-text hover:text-primary font-bold transition-colors py-2">
+              <button className={`flex items-center gap-1 font-bold transition-colors py-4 ${isActive('/services') ? 'text-primary' : 'text-text hover:text-primary'}`}>
                 خدماتنا <ChevronDown className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                {isActive('/services') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
               </button>
               <div className="absolute top-full right-0 bg-white shadow-xl rounded-xl border border-border hidden group-hover:block w-56 py-2 z-50">
                 <Link to="/services" className="block px-4 py-2 hover:bg-gray-50 text-text hover:text-primary transition-colors">توزيع الأدوية الشامل</Link>
@@ -327,21 +370,45 @@ export const Header: React.FC = () => {
             </li>
 
             <li>
-              <Link to="/articles" className="text-text hover:text-primary font-bold transition-colors">المقالات</Link>
+              <Link to="/articles" className={`relative py-4 block transition-colors font-bold ${isActive('/articles') ? 'text-primary' : 'text-text hover:text-primary'}`}>
+                المقالات
+                {isActive('/articles') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
+              </Link>
             </li>
             <li>
-              <Link to="/about" className="text-text hover:text-primary font-bold transition-colors">عن الشركة</Link>
+              <Link to="/about" className={`relative py-4 block transition-colors font-bold ${isActive('/about') ? 'text-primary' : 'text-text hover:text-primary'}`}>
+                عن الشركة
+                {isActive('/about') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
+              </Link>
             </li>
             <li>
-              <Link to="/contact" className="text-text hover:text-primary font-bold transition-colors">اتصل بنا</Link>
+              <Link to="/contact" className={`relative py-4 block transition-colors font-bold ${isActive('/contact') ? 'text-primary' : 'text-text hover:text-primary'}`}>
+                اتصل بنا
+                {isActive('/contact') && <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>}
+              </Link>
             </li>
           </ul>
         </div>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Backdrop */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t border-border py-4 px-4 space-y-4 absolute w-full shadow-lg z-50">
+        <div 
+          className="fixed inset-0 bg-black/50 z-[60] md:hidden transition-opacity"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Menu Content */}
+      <div className={`fixed inset-y-0 right-0 w-[50%] max-w-sm bg-white/90 backdrop-blur-md shadow-2xl z-[70] md:hidden transform transition-transform duration-300 ease-in-out flex flex-col ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <span className="font-bold text-lg text-primary">القائمة</span>
+          <button onClick={() => setIsMenuOpen(false)} className="p-2 text-text hover:text-primary">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <form ref={mobileSearchRef} onSubmit={handleSearch} className="relative">
             <input
               type="text"
@@ -352,7 +419,7 @@ export const Header: React.FC = () => {
               }}
               onFocus={() => setShowSuggestions(true)}
               placeholder="ابحث..."
-              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:border-primary bg-gray-50"
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:border-primary bg-gray-50 text-sm"
             />
             <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary">
               <Search className="w-5 h-5" />
@@ -400,15 +467,15 @@ export const Header: React.FC = () => {
             )}
           </form>
           <ul className="space-y-2 font-medium">
-            <li><Link to="/" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>الرئيسية</Link></li>
-            <li><Link to="/products" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>المنتجات</Link></li>
-            <li><Link to="/types" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>أنواع المنتجات</Link></li>
-            <li><Link to="/manufacturers" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>الشركات المصنعة</Link></li>
-            <li><Link to="/services" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>خدماتنا</Link></li>
-            <li><Link to="/articles" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>المقالات</Link></li>
-            <li><Link to="/about" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>عن الشركة</Link></li>
-            <li><Link to="/contact" className="block py-2 text-text" onClick={() => setIsMenuOpen(false)}>اتصل بنا</Link></li>
-            <li><Link to="/booking" className="block py-2 text-primary font-bold" onClick={() => setIsMenuOpen(false)}>حجز استشارة</Link></li>
+            <li><Link to="/" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>الرئيسية</Link></li>
+            <li><Link to="/products" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/products') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>المنتجات</Link></li>
+            <li><Link to="/types" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/types') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>أنواع المنتجات</Link></li>
+            <li><Link to="/manufacturers" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/manufacturers') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>الشركات المصنعة</Link></li>
+            <li><Link to="/services" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/services') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>خدماتنا</Link></li>
+            <li><Link to="/articles" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/articles') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>المقالات</Link></li>
+            <li><Link to="/about" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/about') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>عن الشركة</Link></li>
+            <li><Link to="/contact" className={`block py-3 px-4 rounded-xl transition-all ${isActive('/contact') ? 'bg-primary text-white font-bold' : 'text-text hover:bg-gray-50'}`} onClick={() => setIsMenuOpen(false)}>اتصل بنا</Link></li>
+            <li className="pt-2"><Link to="/booking" className="block py-3 px-4 rounded-xl bg-accent text-white font-bold text-center shadow-lg" onClick={() => setIsMenuOpen(false)}>حجز استشارة</Link></li>
             
             <li className="border-t border-border pt-2 mt-2">
               <button onClick={handleLanguageSwitch} className="flex items-center gap-2 py-2 text-text w-full">
@@ -426,7 +493,7 @@ export const Header: React.FC = () => {
             )}
           </ul>
         </div>
-      )}
+      </div>
     </header>
   );
 };

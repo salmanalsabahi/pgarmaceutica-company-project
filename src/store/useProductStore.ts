@@ -26,10 +26,10 @@ interface ProductState {
 }
 
 export const useProductStore = create<ProductState>((set, get) => ({
-  products: defaultProducts,
-  categories: defaultCategories,
-  productTypes: defaultProductTypes,
-  manufacturers: defaultManufacturers,
+  products: [],
+  categories: [],
+  productTypes: [],
+  manufacturers: [],
   isInitialized: false,
 
   initialize: () => {
@@ -41,10 +41,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
         const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         set({ products });
       } else {
-        // Seed default products if empty
-        defaultProducts.forEach(p => {
-          setDoc(doc(db, 'products', p.id), p);
-        });
+        set({ products: [] });
       }
     });
 
@@ -53,16 +50,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
       if (docSnap.exists()) {
         const data = docSnap.data();
         set({
-          categories: data.categories || defaultCategories,
-          productTypes: data.productTypes || defaultProductTypes,
-          manufacturers: data.manufacturers || defaultManufacturers,
-        });
-      } else {
-        // Seed default config
-        setDoc(doc(db, 'config', 'main'), {
-          categories: defaultCategories,
-          productTypes: defaultProductTypes,
-          manufacturers: defaultManufacturers
+          categories: data.categories || [],
+          productTypes: data.productTypes || [],
+          manufacturers: data.manufacturers || [],
         });
       }
     });

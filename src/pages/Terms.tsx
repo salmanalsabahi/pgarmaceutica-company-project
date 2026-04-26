@@ -1,6 +1,9 @@
 import React from 'react';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export const Terms: React.FC = () => {
+  const { settings } = useSettingsStore();
+
   return (
     <div className="bg-bg min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-4xl">
@@ -9,7 +12,7 @@ export const Terms: React.FC = () => {
           
           <div className="prose prose-lg max-w-none text-text-muted">
             <p className="mb-6">
-              مرحباً بكم في منصة شركة الشفاء لتوزيع الأدوية. يرجى قراءة هذه الشروط والأحكام بعناية قبل استخدام الموقع.
+              مرحباً بكم في منصة {settings.name}. يرجى قراءة هذه الشروط والأحكام بعناية قبل استخدام الموقع.
             </p>
 
             <h2 className="text-xl font-bold text-text mt-8 mb-4">1. قبول الشروط</h2>

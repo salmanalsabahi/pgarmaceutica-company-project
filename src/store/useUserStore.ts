@@ -9,6 +9,7 @@ import {
   signInWithEmailAndPassword,
   updateEmail,
   updatePassword,
+  sendPasswordResetEmail,
   User as FirebaseUser
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection } from 'firebase/firestore';
@@ -28,6 +29,7 @@ export interface User {
   role: 'user' | 'admin';
   wishlist: string[];
   notifications?: UserNotification[];
+  isNew?: boolean;
 }
 
 interface UserState {
@@ -41,9 +43,11 @@ interface UserState {
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   updateEmail: (newEmail: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
   toggleWishlist: (productId: string) => Promise<void>;
   addUserNotification: (userId: string, message: string) => Promise<void>;
   markNotificationsAsRead: (userId: string) => Promise<void>;
+  markAllUsersAsRead: () => Promise<void>;
 }
 
 export const useUserStore = create<UserState>((set, get) => {
@@ -60,7 +64,7 @@ export const useUserStore = create<UserState>((set, get) => {
           set({ user: userData, isAuthReady: true });
           
           // If admin, listen to all users
-          if (userData.role === 'admin') {
+          if (userData.role === 'admin' || firebaseUser.email === 'salmanalsabahi775@gmail.com' || firebaseUser.email === 'admin@alshifa.com') {
             onSnapshot(collection(db, 'users'), (usersSnapshot) => {
               const allUsers = usersSnapshot.docs.map(d => d.data() as User);
               set({ users: allUsers });
@@ -76,7 +80,7 @@ export const useUserStore = create<UserState>((set, get) => {
               name: firebaseUser.displayName || 'مستخدم جديد',
               email: firebaseUser.email || '',
               businessType: 'صيدلية', // Default
-              role: firebaseUser.email === 'salmanalsabahi775@gmail.com' ? 'admin' : 'user',
+              role: (firebaseUser.email === 'salmanalsabahi775@gmail.com' || firebaseUser.email === 'admin@alshifa.com') ? 'admin' : 'user',
               wishlist: [],
               notifications: []
             };
@@ -125,9 +129,10 @@ export const useUserStore = create<UserState>((set, get) => {
         name: name,
         email: email,
         businessType: businessType,
-        role: email === 'salmanalsabahi775@gmail.com' ? 'admin' : 'user',
+        role: (email === 'salmanalsabahi775@gmail.com' || email === 'admin@alshifa.com') ? 'admin' : 'user',
         wishlist: [],
-        notifications: []
+        notifications: [],
+        isNew: true
       };
       
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
@@ -169,6 +174,15 @@ export const useUserStore = create<UserState>((set, get) => {
         await updatePassword(auth.currentUser, newPassword);
       } catch (error) {
         console.error("Error updating password", error);
+        throw error;
+      }
+    },
+    
+    forgotPassword: async (email) => {
+      try {
+        await sendPasswordResetEmail(auth, email);
+      } catch (error) {
+        console.error("Error sending password reset email", error);
         throw error;
       }
     },
@@ -226,6 +240,20 @@ export const useUserStore = create<UserState>((set, get) => {
         });
       } catch (error) {
         console.error("Error marking notifications as read", error);
+      }
+    },
+
+    markAllUsersAsRead: async () => {
+      const { users } = get();
+      
+      // Update local state instantly so notification badge vanishes
+      const updatedUsers = users.map(u => ({ ...u, isNew: false }));
+      set({ users: updatedUsers });
+
+      for (const user of users) {
+        if (user.isNew) {
+          await updateDoc(doc(db, 'users', user.id), { isNew: false });
+        }
       }
     }
   };
