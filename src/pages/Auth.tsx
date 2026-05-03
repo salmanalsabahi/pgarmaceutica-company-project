@@ -66,8 +66,26 @@ export const Auth: React.FC = () => {
     }
   };
 
-  const handleForgotPassword = () => {
-    addToast('الرجاء التواصل مع إدارة النظام (عبر الواتساب أو الإيميل) لإعادة تعيين كلمة المرور الخاصة بك.', 'info');
+  const handleForgotPassword = async () => {
+    if (!email) {
+      addToast('الرجاء إدخال البريد الإلكتروني أولاً ثم الضغط على "نسيت كلمة المرور"', 'error');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { forgotPassword } = useUserStore.getState();
+      await forgotPassword(email);
+      addToast('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني', 'success');
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/user-not-found') {
+         addToast('البريد الإلكتروني غير مسجل بعد', 'error');
+      } else {
+         addToast('حدث خطأ أثناء الإرسال. تأكد من صحة البريد الإلكتروني.', 'error');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // If user is already logged in, redirect

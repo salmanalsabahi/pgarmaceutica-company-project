@@ -156,11 +156,27 @@ export const Checkout: React.FC = () => {
 
       await addOrder(newOrder as Order);
       
-      // Notify Admins
+      // Notify System Admins
       const admins = users.filter(u => u.role === 'admin' || u.email === 'salmanalsabahi775@gmail.com');
       const notificationMsg = `طلب جديد برقم ${newOrderId} من ${shippingInfo.name}`;
       for (const admin of admins) {
         await addUserNotification(admin.id, notificationMsg);
+      }
+
+      // Send Email Notification to Customer
+      if (user?.email) {
+        const { sendEmailNotification } = useNotificationStore.getState();
+        const html = `
+          <div dir="rtl" style="font-family: Arial, sans-serif;">
+            <h2>شكراً لطلبك من شركة الشفاء للأدوية!</h2>
+            <p>مرحباً ${shippingInfo.name}،</p>
+            <p>لقد استلمنا طلبك رقم <strong>${newOrderId}</strong> وهو الآن قيد المراجعة.</p>
+            <p><strong>الإجمالي:</strong> ${getFinalTotalYer().toLocaleString()} ريال يمني</p>
+            <br/>
+            <p>سنتواصل معك قريباً لتنفيذ الطلب.</p>
+          </div>
+        `;
+        await sendEmailNotification(user.email, `تأكيد طلب رقم ${newOrderId}`, html);
       }
 
       clearCart();

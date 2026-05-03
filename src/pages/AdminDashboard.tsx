@@ -640,7 +640,24 @@ export const AdminDashboard: React.FC = () => {
                           const newStatus = e.target.value as any;
                           updateOrderStatus(order.id, newStatus);
                           addUserNotification(order.userId, `تم تحديث حالة طلبك رقم ${order.id} إلى: ${newStatus}`);
-                          addToast(`تم تحديث حالة الطلب ${order.id} وإرسال إشعار للعميل`, 'success');
+                          
+                          // Send Email Notification
+                          const orderUser = users.find(u => u.id === order.userId);
+                          if (orderUser && orderUser.email) {
+                            const { sendEmailNotification } = useNotificationStore.getState();
+                            const html = `
+                              <div dir="rtl" style="font-family: Arial, sans-serif;">
+                                <h2>تحديث حالة الطلب</h2>
+                                <p>مرحباً ${order.shippingInfo?.name || ''}،</p>
+                                <p>تم تحديث حالة طلبك رقم <strong>${order.id}</strong> إلى: <strong>${newStatus}</strong>.</p>
+                                <br/>
+                                <p>شكراً لتسوقك معنا!</p>
+                              </div>
+                            `;
+                            sendEmailNotification(orderUser.email, `تحديث حالة طلبك رقم ${order.id}`, html);
+                          }
+
+                          addToast(`تم تحديث حالة الطلب ${order.id} وإرسال التنبيهات للعميل`, 'success');
                           
                           // Optional: Prompt to send WhatsApp
                           const waMessage = `مرحباً، تم تحديث حالة طلبك رقم ${order.id} في ${settings.name} إلى: ${newStatus}`;

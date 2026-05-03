@@ -92,5 +92,10 @@ service cloud.firestore {
         allow update, delete: if isAdmin();
       }
     }
+
+    match /mail {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
   }
 }
