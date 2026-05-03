@@ -20,7 +20,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لعرض المنتجات وإضافتها للسلة' } }));
+      addToast('عفواً، لا يمكن إضافة منتجات إلى السلة بدون اتصال بالإنترنت.', 'error');
       return;
     }
     if (!user) {

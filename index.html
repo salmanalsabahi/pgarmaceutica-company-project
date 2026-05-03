@@ -137,6 +137,21 @@
       observer.observe(document.body, { childList: true, subtree: true });
       window.addEventListener('resize', fixChatPosition);
 
+      // Offline Guard for Chat Widget
+      window.addEventListener('click', (e) => {
+        const target = e.target;
+        const path = e.composedPath ? e.composedPath() : [];
+        const isChatClick = path.some(el => {
+          return el && el !== window && el !== document && el.classList && (el.classList.contains('n8n-chat-container') || el.classList.contains('n8n-chat-toggle') || el.classList.contains('n8n-chat-window'));
+        });
+        if (isChatClick && !navigator.onLine) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'عفواً، يتطلب المساعد الآلي اتصالاً بالإنترنت للرد على استفساراتك. يرجى الاتصال ثم المحاولة مجدداً.' } }));
+        }
+      }, true); // use capture phase
+
       // Close chat when clicking outside
       const handleChatClickOutside = (e) => {
         const chatWindow = document.querySelector('.n8n-chat-window, .n8n-chat-container');

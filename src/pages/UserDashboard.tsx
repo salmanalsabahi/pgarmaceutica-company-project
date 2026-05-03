@@ -35,10 +35,6 @@ export const UserDashboard: React.FC = () => {
 
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!navigator.onLine) {
-      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لتحديث البيانات' } }));
-      return;
-    }
     updateUser(user.id, profileForm);
     addToast('تم تحديث البيانات بنجاح', 'success');
   };

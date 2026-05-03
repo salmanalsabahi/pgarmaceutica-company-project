@@ -18,7 +18,7 @@ export const Auth: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     if (!navigator.onLine) {
-      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لتسجيل الدخول' } }));
+      addToast('عفواً، لا يمكن التحقق من بيانات الدخول بدون اتصال بالإنترنت.', 'error');
       return;
     }
     setIsLoading(true);
@@ -36,7 +36,7 @@ export const Auth: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لكي تتم العملية' } }));
+      addToast('عفواً، لا يمكن التحقق من بيانات الدخول أو إنشاء حساب بدون اتصال بالإنترنت. يرجى الاتصال ثم المحاولة مجدداً.', 'error');
       return;
     }
     setIsLoading(true);

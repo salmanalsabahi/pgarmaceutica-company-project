@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
@@ -31,6 +31,7 @@ import { usePromoStore } from './store/usePromoStore';
 import { useSettingsStore } from './store/useSettingsStore';
 import { useBookingStore } from './store/useBookingStore';
 import { useUserStore } from './store/useUserStore';
+import { useNotificationStore } from './store/useNotificationStore';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -50,6 +51,9 @@ export default function App() {
   const { initialize: initBookings } = useBookingStore();
   const { user } = useUserStore();
   const { settings } = useSettingsStore();
+  const { addToast } = useNotificationStore();
+
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     initProducts();
@@ -61,6 +65,31 @@ export default function App() {
   useEffect(() => {
     initBookings(user?.id, user?.role === 'admin');
   }, [user, initBookings]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      addToast('عاد الاتصال بالإنترنت. تتم مزامنة البيانات الآن.', 'success');
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      addToast('أنت غير متصل بالإنترنت. يمكنك الاستمرار في العمل، وسيتم حفظ بياناتك ومزامنتها لاحقاً.', 'error');
+    };
+
+    const handleCustomOfflineMessage = (e: any) => {
+      addToast(e.detail?.message || 'عفواً، لا يتوفر اتصال بالإنترنت.', 'error');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('trigger-offline-message', handleCustomOfflineMessage);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('trigger-offline-message', handleCustomOfflineMessage);
+    };
+  }, [addToast]);
 
   // Maintenance mode bypass for admin or auth pages
   const isAdmin = user?.role === 'admin';

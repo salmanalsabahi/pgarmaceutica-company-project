@@ -21,10 +21,6 @@ export const Contact: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!navigator.onLine) {
-      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لكي تتم العملية' } }));
-      return;
-    }
     setLoading(true);
     
     try {

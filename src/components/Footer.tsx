@@ -40,29 +40,32 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-lg font-bold mb-6 border-b border-gray-700 pb-2 inline-block">روابط سريعة</h3>
-            <ul className="space-y-3">
-              <li><Link to="/" className="text-gray-400 hover:text-accent transition-colors">الرئيسية</Link></li>
-              <li><Link to="/products" className="text-gray-400 hover:text-accent transition-colors">جميع المنتجات</Link></li>
-              <li><Link to="/services" className="text-gray-400 hover:text-accent transition-colors">خدماتنا</Link></li>
-              <li><Link to="/about" className="text-gray-400 hover:text-accent transition-colors">من نحن</Link></li>
-              <li><Link to="/contact" className="text-gray-400 hover:text-accent transition-colors">اتصل بنا</Link></li>
-              <li><Link to="/terms" className="text-gray-400 hover:text-accent transition-colors">الشروط والأحكام</Link></li>
-            </ul>
-          </div>
+          {/* Quick Links and Categories grouped */}
+          <div className="grid grid-cols-2 gap-4 md:col-span-2 lg:col-span-2">
+            {/* Quick Links */}
+            <div>
+              <h3 className="text-base md:text-lg font-bold mb-6 border-b border-gray-700 pb-2 inline-block">روابط سريعة</h3>
+              <ul className="space-y-3">
+                <li><Link to="/" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">الرئيسية</Link></li>
+                <li><Link to="/products" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">جميع المنتجات</Link></li>
+                <li><Link to="/services" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">خدماتنا</Link></li>
+                <li><Link to="/about" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">من نحن</Link></li>
+                <li><Link to="/contact" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">اتصل بنا</Link></li>
+                <li><Link to="/terms" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">الشروط والأحكام</Link></li>
+              </ul>
+            </div>
 
-          {/* Categories */}
-          <div>
-            <h3 className="text-lg font-bold mb-6 border-b border-gray-700 pb-2 inline-block">أقسام المنتجات</h3>
-            <ul className="space-y-3">
-              <li><Link to="/products?category=المضادات الحيوية" className="text-gray-400 hover:text-accent transition-colors">المضادات الحيوية</Link></li>
-              <li><Link to="/products?category=أدوية القلب والضغط" className="text-gray-400 hover:text-accent transition-colors">أدوية القلب والضغط</Link></li>
-              <li><Link to="/products?category=أدوية السكري" className="text-gray-400 hover:text-accent transition-colors">أدوية السكري</Link></li>
-              <li><Link to="/products?category=فيتامينات ومكملات" className="text-gray-400 hover:text-accent transition-colors">فيتامينات ومكملات</Link></li>
-              <li><Link to="/products?category=مستلزمات طبية" className="text-gray-400 hover:text-accent transition-colors">مستلزمات طبية</Link></li>
-            </ul>
+            {/* Categories */}
+            <div>
+              <h3 className="text-base md:text-lg font-bold mb-6 border-b border-gray-700 pb-2 inline-block">أقسام المنتجات</h3>
+              <ul className="space-y-3">
+                <li><Link to="/products?category=المضادات الحيوية" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">المضادات الحيوية</Link></li>
+                <li><Link to="/products?category=أدوية القلب والضغط" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">أدوية القلب والضغط</Link></li>
+                <li><Link to="/products?category=أدوية السكري" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">أدوية السكري</Link></li>
+                <li><Link to="/products?category=فيتامينات ومكملات" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">فيتامينات ومكملات</Link></li>
+                <li><Link to="/products?category=مستلزمات طبية" className="text-sm md:text-base text-gray-400 hover:text-accent transition-colors">مستلزمات طبية</Link></li>
+              </ul>
+            </div>
           </div>
 
           {/* Contact Info */}

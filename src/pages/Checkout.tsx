@@ -87,7 +87,7 @@ export const Checkout: React.FC = () => {
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لكي تتم العملية' } }));
+      addToast('عفواً، لا يمكن إتمام الطلب بدون اتصال بالإنترنت. يرجى الاتصال ثم المحاولة مجدداً.', 'error');
       return;
     }
     if (step < 3) setStep((s) => (s + 1) as 1 | 2 | 3);
@@ -106,7 +106,7 @@ export const Checkout: React.FC = () => {
 
   const handleComplete = async () => {
     if (!navigator.onLine) {
-      window.dispatchEvent(new CustomEvent('trigger-offline-message', { detail: { message: 'الرجاء الاتصال بالانترنت لكي تتم العملية' } }));
+      addToast('عفواً، لا يمكن إتمام الطلب بدون اتصال بالإنترنت. يرجى الاتصال ثم المحاولة مجدداً.', 'error');
       return;
     }
     if (!user) {
